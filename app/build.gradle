@@ -2,16 +2,24 @@ plugins {
     id 'application'
 }
 
+version = "0.1"
+
 repositories {
     mavenCentral()
 }
 
 dependencies {
+    implementation 'org.fusesource.jansi:jansi:2.4.0'
     testImplementation 'org.junit.jupiter:junit-jupiter:5.9.1'
 }
 
 application {
     mainClass = 'edu.curtin.polyfind.PolyFind'
+    applicationName = 'polyfind'
+}
+
+compileJava {
+    options.compilerArgs << '-Xlint:all,-serial'
 }
 
 tasks.named('test') {

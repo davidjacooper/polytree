@@ -10,6 +10,8 @@ public class MethodNode implements Comparable<MethodNode>
     private final TypeNode type;
         
     private final ArrayList<ParameterNode> parameters = new ArrayList<>();
+    private Signature signature = null;
+    
     private MethodNode overrides = null;
     private final Set<MethodNode> overriddenBy = new HashSet<>();
         
@@ -48,6 +50,15 @@ public class MethodNode implements Comparable<MethodNode>
     public MethodDefinition getDefinition()    { return defn; }
     public MethodNode getOverrides()           { return overrides; }
     public Set<MethodNode> getOverriddenBy()   { return Collections.unmodifiableSet(overriddenBy); }
+
+    public Signature getSignature()            
+    { 
+        if(signature == null)
+        {
+            signature = new Signature(name, parameters.stream().map(ParameterNode::getType).toList());
+        }
+        return signature;
+    }
     
     @Override
     public int compareTo(MethodNode other)
@@ -73,12 +84,18 @@ public class MethodNode implements Comparable<MethodNode>
     {
         if(!(other instanceof MethodNode)) { return false; }
         var otherMethod = (MethodNode)other;
-        return name.equals(otherMethod.name) && parameters.equals(otherMethod.parameters);
+        return type.equals(otherMethod.type) && name.equals(otherMethod.name) && parameters.equals(otherMethod.parameters);
     }
     
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, parameters);
+        return Objects.hash(type, name, parameters);
+    }
+    
+    @Override
+    public String toString()
+    {
+        return defn.toString();
     }
 }

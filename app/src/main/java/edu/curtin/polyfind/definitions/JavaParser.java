@@ -39,7 +39,6 @@ public final class JavaParser
         int prevLength;
         do
         {
-            // System.out.println(content);
             var matcher = TYPE_DEF_PATTERN.matcher(content);
             while(matcher.find())
             {
@@ -61,7 +60,7 @@ public final class JavaParser
                         {
                             parameters.add(new ParameterDefinition(
                                 new HashSet<>(List.of(paramMatcher.group("modifiers").trim().split(" +"))),
-                                paramMatcher.group("type"),
+                                paramMatcher.group("type").replaceAll(" ", ""),
                                 paramMatcher.group("name")));
                         }
                     

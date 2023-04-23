@@ -69,16 +69,16 @@ public class TreeBuilder
         return typeMap.values();
     }
     
-    private static void findMethodOverrides(TypeNode node, Map<String,MethodNode> superMethods)
+    private static void findMethodOverrides(TypeNode type, Map<Signature,MethodNode> superMethods)
     {
         // FIXME: does not account for multiple inheritance.
         
         var newSuperMethods = new HashMap<>(superMethods);
     
-        for(var method : node.getMethods())
+        for(var method : type.getMethods())
         {
-            var name = method.getName();
-            var superMethod = superMethods.get(name);
+            var signature = method.getSignature();
+            var superMethod = superMethods.get(signature);
             if(superMethod != null)
             {
                 var superModifiers = superMethod.getDefinition().getModifiers();
@@ -92,13 +92,14 @@ public class TreeBuilder
             var modifiers = method.getDefinition().getModifiers();
             if(!(modifiers.contains("final") || modifiers.contains("private") || modifiers.contains("static")))
             {
-                newSuperMethods.put(name, method);
+                newSuperMethods.put(signature, method);
             }
         }
         
-        for(var child : node.getChildren())
+        for(var child : type.getChildren())
         {
             findMethodOverrides(child, newSuperMethods);
         }
     }
+
 }
