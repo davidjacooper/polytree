@@ -2,42 +2,49 @@ package edu.curtin.polyfind;
 import edu.curtin.polyfind.definitions.*;
 import edu.curtin.polyfind.tree.*;
 
+import picocli.CommandLine;
+
 import java.io.*;
 import java.nio.file.*;
 import java.util.*;
+import java.util.concurrent.Callable;
 
-public class PolyFind 
+@CommandLine.Command(name = "polyfill",
+                     mixinStandardHelpOptions = true,
+                     version = "0.1",
+                     description = "Experimental tool to display the structure of a student's Java application.")
+public class PolyFind implements Callable<Integer>
 {
     public static void main(String[] args) 
     {
-        if(args.length > 1)
-        {
-            System.err.println("Too many command-line parameters.");
-            System.exit(1);
+        System.exit(new CommandLine(new PolyFind()).execute(args));
+    }
+    
+    @CommandLine.Parameters(index = "0", description = "Root of the source code directory tree.")
+    private File directory;
+    
+    @CommandLine.Option(names = {"-a", "--ascii"}, 
+                        description = "Use standard ASCII symbols only (in case non-ASCII Unicode doesn't display properly).")
+    private boolean ascii;
+    
+    @Override
+    public Integer call() throws Exception
+    {
+        var parser = new JavaParser();
+        var treeBuilder = new TreeBuilder();
+        for(var file : Files.walk(directory.toPath())
+                            .filter(Files::isRegularFile)
+                            .filter(p -> p.toString().endsWith(".java"))
+                            .toList())
+        {               
+            var sourceFile = SourceFile.read(file);
+            for(var defn : parser.parse(sourceFile))
+            {
+                treeBuilder.addDefinition(defn);
+            }
         }
         
-        try
-        {
-            var parser = new JavaParser();
-            var treeBuilder = new TreeBuilder();
-            for(var file : Files.walk(Path.of((args.length == 0) ? "." : args[0]))
-                                .filter(Files::isRegularFile)
-                                .filter(p -> p.toString().endsWith(".java"))
-                                .toList())
-            {               
-                var sourceFile = SourceFile.read(file);
-                for(var defn : parser.parse(sourceFile))
-                {
-                    treeBuilder.addDefinition(defn);
-                }
-            }
-            
-            TreeViewer.withAnsi().view(treeBuilder.build());
-
-        }
-        catch(IOException e)
-        {
-            System.err.println("IO Error: " + e.getMessage());
-        }
+        TreeViewer.withAnsi().ascii(ascii).view(treeBuilder.build());
+        return 0;
     }
 }

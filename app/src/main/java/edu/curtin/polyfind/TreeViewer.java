@@ -19,11 +19,20 @@ public class TreeViewer
     private static final String MAGENTA = "35";
     private static final String CYAN = "36";
     private static final String BRIGHT_MAGENTA = "35;1";
+    
+    private static final char[] UNICODE_CHARSET = {'│', '├', '└', '─', '┊'};
+    private static final char[] ASCII_CHARSET   = {'|', '+', '\\', '-', '|'};
+    private static final int VERTICAL_CH = 0;
+    private static final int INTERSECT_CH = 1;
+    private static final int CORNER_CH = 2;
+    private static final int HORIZONTAL_CH = 3;
+    private static final int VERTICAL_DOTTED_CH = 4;
 
     static {
         AnsiConsole.systemInstall();
     }
     
+    private char[] charSet = UNICODE_CHARSET;
     private int column = 0;
     private int terminalWidth;
     private PrintStream out;
@@ -43,6 +52,12 @@ public class TreeViewer
             terminalWidth = 80;
         }
         this.out = out;
+    }
+    
+    public TreeViewer ascii(boolean ascii)
+    {
+        charSet = ascii ? ASCII_CHARSET : UNICODE_CHARSET;
+        return this;
     }
 
     public void view(Collection<TypeNode> types) 
@@ -96,7 +111,7 @@ public class TreeViewer
                 println(otherParent.getName(), GREY);
             }
             print(abovePrefix);
-            println("┊", GREY);
+            println("" + charSet[VERTICAL_DOTTED_CH], GREY);
         }
                 
         print(connectingPrefix);
@@ -140,18 +155,24 @@ public class TreeViewer
         
         var children = type.getChildren();
         var nChildren = children.size();
-        viewMethods(belowPrefix + ((nChildren > 0) ? "│   " : "    "), type);
+        viewMethods(belowPrefix + ((nChildren > 0) ? (charSet[VERTICAL_CH] + "   ") : "    "), type);
         
         int i = 0;
         for(var child : children)
         {
             if(i < nChildren - 1)
             {
-                printNodeTree(belowPrefix + "│   ", belowPrefix + "├── ", belowPrefix + "│   ", child, type);
+                printNodeTree(belowPrefix + charSet[VERTICAL_CH] + "   ", 
+                              belowPrefix + charSet[INTERSECT_CH] + charSet[HORIZONTAL_CH] + charSet[HORIZONTAL_CH] + " ", 
+                              belowPrefix + charSet[VERTICAL_CH] + "   ", 
+                              child, type);
             }
             else
             {
-                printNodeTree(belowPrefix + "│   ", belowPrefix + "└── ", belowPrefix + "    ", child, type);
+                printNodeTree(belowPrefix + charSet[VERTICAL_CH] + "   ", 
+                              belowPrefix + charSet[CORNER_CH] + charSet[HORIZONTAL_CH] + charSet[HORIZONTAL_CH] + " ", 
+                              belowPrefix + "    ", 
+                              child, type);
             }
             i++;
         }
