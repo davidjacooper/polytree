@@ -1,6 +1,7 @@
 package edu.curtin.polyfind;
 import edu.curtin.polyfind.definitions.*;
 import edu.curtin.polyfind.tree.*;
+import edu.curtin.polyfind.view.*;
 
 import picocli.CommandLine;
 
@@ -28,24 +29,57 @@ public class PolyFind implements Callable<Integer>
                         description = "Use standard ASCII symbols only (if non-ASCII box-drawing symbols don't display properly).")
     private boolean ascii;
     
+    @CommandLine.Option(names = {"-g", "--grep"},
+                        description = "Show usage for the 'grep' command (instead of for the 'ack' command by default).")
+    private boolean useGrep;
+    
     @Override
-    public Integer call() throws Exception
+    public Integer call()
     {
-        var parser = new JavaParser();
-        var treeBuilder = new TreeBuilder();
-        for(var file : Files.walk(directory.toPath())
-                            .filter(Files::isRegularFile)
-                            .filter(p -> p.toString().endsWith(".java"))
-                            .toList())
-        {               
-            var sourceFile = SourceFile.read(file);
-            for(var defn : parser.parse(sourceFile))
+        try
+        {
+            var parser = new JavaParser();
+            var treeBuilder = new TreeBuilder();
+            try
             {
-                treeBuilder.addDefinition(defn);
+                for(var file : Files.walk(directory.toPath())
+                                    .filter(Files::isRegularFile)
+                                    .filter(p -> p.toString().endsWith(".java"))
+                                    .toList())
+                {               
+                    var sourceFile = SourceFile.read(file);
+                    for(var defn : parser.parse(sourceFile))
+                    {
+                        treeBuilder.addDefinition(defn);
+                    }
+                }
             }
+            catch(NoSuchFileException e)
+            {
+                System.err.println("Directory cannot be found: " + e.getMessage());
+                return 1;
+            }
+            
+            var typeNodes = treeBuilder.build();        
+            var output = Output.withAnsi().ascii(ascii);        
+            new TreeViewer(output).view(typeNodes);
+            
+            String path;
+            try
+            {
+                path = directory.getCanonicalPath();
+            }
+            catch(IOException e)
+            {
+                path = directory.getAbsolutePath();
+            }
+            new SearchRecommender(output).useAck(!useGrep).showCommands(typeNodes, path);
+            return 0;
         }
-        
-        TreeViewer.withAnsi().ascii(ascii).view(treeBuilder.build());
-        return 0;
+        catch(IOException e)
+        {
+            System.err.println("An IO error occurred: " + e.getMessage());
+            return 1;
+        }
     }
 }
