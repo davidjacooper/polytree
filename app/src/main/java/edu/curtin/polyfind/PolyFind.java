@@ -13,7 +13,7 @@ import java.util.concurrent.Callable;
 @CommandLine.Command(name = "polyfind",
                      mixinStandardHelpOptions = true,
                      version = "0.1",
-                     description = "Experimental tool to display the structure of a student's Java application.",
+                     description = "Displays the inheritance structure of a student's Java application, and recommends ack/grep commands for finding polymorphic method call sites.",
                      footer = "Copyright (c) 2023 by David J A Cooper.")
 public class PolyFind implements Callable<Integer>
 {

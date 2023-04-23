@@ -104,7 +104,7 @@ public class SearchRecommender
             
         out.print("'\\b(");
         out.printJoin("|", DEFAULT, methodPatterns, CYAN);
-        out.print(")\\s*\\('");
-        out.println(" '" + path.replaceAll("'", "'\''") + "'", ORANGE);
+        out.print(")\\s*\\(' ");
+        out.println("'" + path.replaceAll("'", "'\''") + "'", ORANGE);
     }
 }
