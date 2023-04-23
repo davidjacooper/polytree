@@ -9,7 +9,7 @@ import java.nio.file.*;
 import java.util.*;
 import java.util.concurrent.Callable;
 
-@CommandLine.Command(name = "polyfill",
+@CommandLine.Command(name = "polyfind",
                      mixinStandardHelpOptions = true,
                      version = "0.1",
                      description = "Experimental tool to display the structure of a student's Java application.")
