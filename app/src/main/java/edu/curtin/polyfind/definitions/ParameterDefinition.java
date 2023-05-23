@@ -2,26 +2,41 @@ package edu.curtin.polyfind.definitions;
 
 import java.util.*;
 
-public class ParameterDefinition 
+public class ParameterDefinition extends Definition
 {
-    private Set<String> modifiers;
-    private String type;
-    private String name;
-    
-    public ParameterDefinition(Set<String> modifiers, String type, String name) 
+    private Optional<String> type = Optional.empty();
+    private Optional<String> defaultValue = Optional.empty();
+    private boolean implicit = false;
+
+    public ParameterDefinition(SourceFile file, int startPos, int endPos, String name)
     {
-        this.modifiers = modifiers;
-        this.type = type;
-        this.name = name;
+        super(file, startPos, endPos, name);
     }
-    
-    public Set<String> getModifiers() { return modifiers; }
-    public String getType() { return type; }
-    public String getName() { return name; }    
-    
+
+    public void setType(String type)
+    {
+        this.type = Optional.of(type);
+    }
+
+    public void setDefaultValue(String defaultValue)
+    {
+        this.defaultValue = Optional.of(defaultValue);
+    }
+
+    public void setImplicit(boolean implicit)
+    {
+        this.implicit = implicit;
+    }
+
+    public Optional<String> getType()         { return type; }
+    public Optional<String> getDefaultValue() { return defaultValue; }
+    public boolean isImplicit() { return implicit; }
+
     @Override
     public String toString()
     {
-        return "[" + String.join(" ", modifiers) + "]" + " " + type + " " + name;
+        return "[" + getModifiersString() + "] "
+            + type.map(t -> t + " ").orElse("")
+            + getName();
     }
 }

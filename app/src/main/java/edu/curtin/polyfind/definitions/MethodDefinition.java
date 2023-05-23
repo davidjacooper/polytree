@@ -1,35 +1,60 @@
 package edu.curtin.polyfind.definitions;
 
 import java.util.*;
-import java.util.regex.*;
+import java.util.stream.*;
 
-public class MethodDefinition 
+public class MethodDefinition extends ScopedDefinition
 {
-    private Set<String> modifiers;
-    private String typeParams;
-    private String returnType;
-    private String name;
-    private List<ParameterDefinition> parameters;
-    
-    public MethodDefinition(Set<String> modifiers, String typeParams, String returnType, String name, List<ParameterDefinition> parameters) 
+    private Optional<String> returnType = Optional.empty();
+    private boolean isConstructor = false;
+    private final List<ParameterDefinition> parameters = new ArrayList<>();
+    private final Set<String> checkedExceptions = new HashSet<>();
+
+    public MethodDefinition(SourceFile file, int startPos, int endPos, String name)
     {
-        this.modifiers = modifiers;
-        this.typeParams = typeParams;
-        this.returnType = returnType;
-        this.name = name;
-        this.parameters = parameters;
+        super(file, startPos, endPos, name);
     }
-    
-    public Set<String> getModifiers()                { return modifiers; }
-    public String getTypeParams()                    { return typeParams; }
-    public String getReturnType()                    { return returnType; }
-    public String getName()                          { return name; }    
-    public List<ParameterDefinition> getParameters() { return parameters; }
-    
+
+    public void addParameter(ParameterDefinition param)
+    {
+        parameters.add(param);
+    }
+
+    public void addCheckedException(String exception)
+    {
+        checkedExceptions.add(exception);
+    }
+
+    public void setReturnType(String returnType)
+    {
+        this.returnType = Optional.of(returnType);
+    }
+
+    public void setConstructor(boolean isConstructor)
+    {
+        this.isConstructor = isConstructor;
+    }
+
+    public Optional<String> getReturnType()            { return returnType; }
+    public boolean isConstructor()                     { return isConstructor; }
+    public Stream<ParameterDefinition> getParameters() { return parameters.stream(); }
+    public Stream<String> getCheckedExceptions()       { return checkedExceptions.stream(); }
+
     @Override
     public String toString()
     {
-        return "[" + String.join(" ", modifiers) + "]" + ((typeParams == null) ? "" : typeParams) + " " + returnType + " " + name + "(" + 
-            String.join(",", parameters.stream().map(ParameterDefinition::getType).toList()) + ")";
+        return "[" + getModifiersString() + "]"
+            + getTypeParams().orElse("") + " "
+            + returnType.orElse("?") + " "
+            + getName() + "("
+            + parameters.stream()
+                        .map(p -> p.getType().orElse(p.getName()))
+                        .collect(Collectors.joining(",")) + ")";
+    }
+
+    @Override
+    public Optional<String> getPublicScope()
+    {
+        return Optional.empty();
     }
 }
