@@ -136,8 +136,6 @@ public class JavaParser extends Parser
             pkgMatcher.uncensoredGroup("name").ifPresent(file::setPackage);
         }
 
-        var classConstructs = Set.of("class", "enum", "record");
-
         var defnSet = new TreeSet<ScopedDefinition>((d1, d2) -> d1.getStartPos() - d2.getStartPos());
 
         while(true)
@@ -156,22 +154,37 @@ public class JavaParser extends Parser
 
             addModifiers(defn, matcher);
 
-            var isClass = classConstructs.contains(
-                matcher.uncensoredGroup("construct").orElse(""));
+            var construct = matcher.uncensoredGroup("construct").orElse("");
+            var isInterface = "interface".equals(construct);
+            var isClass = !isInterface && !construct.isEmpty();
 
-            defnSet.tailSet(defn, false)
-                   .stream()
-                   .takeWhile(existingDefn -> existingDefn.getStartPos() <= defn.getEndPos())
-                   .forEach(existingDefn ->
-                   {
-                       if(isClass && !(existingDefn.is(Modifier.PRIVATE) ||
-                                       existingDefn.is(Modifier.PROTECTED) ||
-                                       existingDefn.is(Modifier.PUBLIC)))
-                       {
-                           existingDefn.addModifier(Modifier.PACKAGE_PRIVATE);
-                       }
-                       defn.addNested(existingDefn);
-                   });
+            defnSet
+                .tailSet(defn, false)
+                .stream()
+                .takeWhile(existingDefn -> existingDefn.getStartPos() <= defn.getEndPos())
+                .forEach(existingDefn ->
+                {
+                    if(isInterface)
+                    {
+                        // Everything in an interface is public.
+                        existingDefn.addModifier(Modifier.PUBLIC);
+
+                        // All non-default instance methods in an interface are abstract.
+                        if(existingDefn instanceof MethodDefinition &&
+                           !existingDefn.is(Modifier.STATIC) &&
+                           !existingDefn.is(Modifier.DEFAULT))
+                        {
+                            existingDefn.addModifier(Modifier.ABSTRACT);
+                        }
+                    }
+                    else if(isClass && !(existingDefn.is(Modifier.PRIVATE) ||
+                                         existingDefn.is(Modifier.PROTECTED) ||
+                                         existingDefn.is(Modifier.PUBLIC)))
+                    {
+                        existingDefn.addModifier(Modifier.PACKAGE_PRIVATE);
+                    }
+                    defn.addNested(existingDefn);
+                });
             defn.getNested().forEach(defnSet::remove);
             defnSet.add(defn);
             content.censor(matcher);

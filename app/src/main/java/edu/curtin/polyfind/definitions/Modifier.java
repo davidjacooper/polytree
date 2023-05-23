@@ -8,6 +8,7 @@ public class Modifier
 
     public static Modifier ABSTRACT        = named("abstract");
     public static Modifier CLASS_METHOD    = named("classmethod");
+    public static Modifier DEFAULT         = named("default");
     public static Modifier FINAL           = named("final");
     public static Modifier PACKAGE_PRIVATE = named("package-private");
     public static Modifier PRIVATE         = named("private");

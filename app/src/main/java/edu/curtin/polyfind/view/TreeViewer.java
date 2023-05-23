@@ -1,4 +1,5 @@
 package edu.curtin.polyfind.view;
+import edu.curtin.polyfind.definitions.Modifier;
 import edu.curtin.polyfind.tree.*;
 import static edu.curtin.polyfind.view.Output.*;
 
@@ -73,7 +74,7 @@ public class TreeViewer
         typeList.sort(null);
 
         var rootTypes           = typeList.stream().filter(t -> t.getParents().isEmpty() && !t.getChildren().isEmpty()).toList();
-        var nonInheritanceTypes = typeList.stream().filter(t -> t.getParents().isEmpty() && t.getChildren().isEmpty() && t.getSourceFile() != null).toList();
+        var nonInheritanceTypes = typeList.stream().filter(t -> t.getParents().isEmpty() && t.getChildren().isEmpty() && t.getSourceFile().isPresent()).toList();
 
         if(rootTypes.isEmpty())
         {
@@ -103,6 +104,8 @@ public class TreeViewer
 
     private void viewNodeTree(String abovePrefix, String connectingPrefix, String belowPrefix, TypeNode type, TypeNode parent)
     {
+        var typeDefn = type.getDefinition();
+
         out.println(abovePrefix);
 
         List<TypeNode> otherParents = new ArrayList<>(type.getParents());
@@ -114,7 +117,8 @@ public class TreeViewer
             for(var otherParent : otherParents)
             {
                 out.print(abovePrefix);
-                out.print(otherParent.isClass() ? "class " : "interface ", GREY);
+                out.print(Common.construct(type), GREY);
+                out.print(" ");
                 out.println(otherParent.getName(), GREY);
             }
             out.print(abovePrefix);
@@ -122,39 +126,25 @@ public class TreeViewer
         }
 
         out.print(connectingPrefix);
-        if(type.isClass())
-        {
-            out.print("class ", GREEN);
-        }
-        else
-        {
-            out.print("interface ", RED);
-        }
+        typeDefn.ifPresent(d ->
+            d.getModifiers().filter(m -> m != Modifier.PUBLIC).forEach(mod ->
+            {
+                out.print(modStr(mod.toString()), mod == Modifier.ABSTRACT ? MAGENTA : ORANGE);
+                out.print(" ");
+            })
+        );
+        out.print(Common.construct(type), type.isClass() ? GREEN : RED);
+        out.print(" ");
         out.print(type.getName(), BRIGHT_WHITE);
 
-        var typeDefn = type.getDefinition();
-        if(typeDefn != null)
-        {
-            typeDefn.getTypeParams().ifPresent(tp -> out.print(tp, GREY));
-        }
+        typeDefn.ifPresent(d -> d.getTypeParams().ifPresent(tp -> out.print(tp, GREY)));
 
-        var sourceFile = type.getSourceFile();
-        if(sourceFile == null)
-        {
-            out.println(" [no source]", GREY);
-        }
-        else
-        {
-            var packageName = sourceFile.getPackage();
-            if(packageName == null)
-            {
-                out.newLine();
-            }
-            else
-            {
-                out.printRight("[package " + packageName + "]", GREY);
-            }
-        }
+        type.getSourceFile().ifPresentOrElse(
+            f -> f.getPackage().ifPresentOrElse(
+                name -> out.printRight("[package " + name + "]", GREY),
+                () -> out.newLine()),
+            () -> out.println(" [no source]", GREY)
+        );
 
         var children = type.getChildren();
         var nChildren = children.size();
@@ -210,7 +200,6 @@ public class TreeViewer
             for(var method : allMethods)
             {
                 var defn = method.getDefinition();
-                // var modifiers = new TreeSet<>(defn.getModifiers());
                 var modifiers = new TreeSet<String>();
                 defn.getModifiers().forEach(m -> modifiers.add(m.toString()));
 
@@ -237,20 +226,16 @@ public class TreeViewer
                         modifiers.add("abstract");
                     }
 
-                    // var typeParams = defn.getTypeParams();
                     var params     = method.getParameters();
 
-                    // typeParamWidth  = max(typeParamWidth, (typeParams == null) ? 0 : typeParams.length() + 1);
                     typeParamWidth  = max(typeParamWidth, defn.getTypeParams().map(tp -> tp.length() + 1).orElse(0));
-                    modifierWidth   = max(modifierWidth, modifiers.stream().mapToInt(s -> s.length() + 1).sum());
+                    modifierWidth   = max(modifierWidth, modifiers.stream().mapToInt(s -> modStr(s).length() + 1).sum());
                     returnTypeWidth = max(returnTypeWidth, defn.getReturnType().map(rt -> rt.length() + 1).orElse(0));
                     signatureWidth  = max(
                         signatureWidth,
                         defn.getName().length() + 2 + (
                             params.isEmpty()
                             ? 2
-                            // : params.stream().mapToInt(
-                            //     p -> p.getType().getName().orElse(p.getName()).length() + 2).sum()
                             : params.stream().mapToInt(p -> paramStr(p).length() + 2).sum()
                         ));
                 }
@@ -274,7 +259,10 @@ public class TreeViewer
                     out.startCount();
                     for(var mod : modifiers)
                     {
-                        out.print(mod, (mod.equals("@Override") || mod.equals("abstract")) ? MAGENTA : ORANGE);
+                        out.print(modStr(mod),
+                                  (mod.equals("@Override") || mod.equals("abstract"))
+                                      ? MAGENTA
+                                      : ORANGE);
                         out.print(" ");
                     }
                     out.print(" ".repeat(modifierWidth - out.getNChars()));
@@ -315,6 +303,11 @@ public class TreeViewer
                 out.println("[" + nPrivateMethods + " private method" + ((nPrivateMethods == 1) ? "" : "s") + "]", GREY);
             }
         }
+    }
+
+    private String modStr(String mod)
+    {
+        return mod.toString().replaceAll("(?s)\\(.*\\)", "()").replaceAll("\\s+", "");
     }
 
     private String paramStr(ParameterNode p)

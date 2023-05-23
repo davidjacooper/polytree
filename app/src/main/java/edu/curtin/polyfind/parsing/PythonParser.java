@@ -19,34 +19,6 @@ public class PythonParser extends Parser
     private static final String NAME = "\\b[A-Za-z_][A-Za-z0-9_]*\\b";
     private static final String FQ_NAME = NAME + "([ \\t]*\\.[ \\t]*" + NAME + ")*";
 
-    // private static final Pattern DECLARATION_PATTERN = Pattern.compile(
-    //     "(?<decorators>(^[ \\t]*@[^\\n]*\\n)*)"
-    //     + "^(?<indent>[ \\t]*)(?<kind>def|class)[ \\t]+"
-    //     + "(?<name>" + NAME + ")[ \\t]*"
-    //     + "(\\((?<params>([^()]|" + bracketExprRegex("\\(", "\\)") + ")*)\\)[ \\t]*)?"
-    //     + "(->[ \\t](?<returnType>[^:]+?)[ \\t]*)?"
-    //     + ":[ \\t]*"
-    //     + "(\\S[^\\n]*|"
-    //     +   "(\\s*\\n\\k<indent>[ \t](\\\\\\n|(?!\\b(def|class)\\b)[^\\n])*)*"
-    //     +   "(?<tail>\\s*(\\z|\\n(?!\\k<indent>[ \\t])[ \\t]*\\S))"
-    //     + ")",
-    //     Pattern.MULTILINE
-    // );
-
-    // private static final Pattern DECLARATION_PATTERN = Pattern.compile(
-    //     "(?<decorators>(^[ \\t]*@[^\\n]*\\n)*)"
-    //     + "^(?<indent>[ \\t]*)(?<kind>def|class)[ \\t]+"
-    //     + "(?<name>" + NAME + ")[ \\t]*"
-    //     + "(\\((?<params>([^()]|" + bracketExprRegex("\\(", "\\)") + ")*)\\)[ \\t]*)?"
-    //     + "(->[ \\t](?<returnType>[^:]+?)[ \\t]*)?"
-    //     + ":[ \\t]*"
-    //     + "(\\S[^\\n]*|"
-    //     +   "(\\s*\\n\\k<indent>[ \t](\\\\\\n|(?!\\b(def|class)\\b)[^\\n])*+)*"
-    //     +   "(?<tail>\\s*(\\z|\\n(?!\\k<indent>[ \\t])[ \\t]*\\S))"
-    //     + ")",
-    //     Pattern.MULTILINE
-    // );
-
     private static final Pattern DECLARATION_PATTERN = Pattern.compile(
         "(?<decorators>(^[ \\t]*@[^\\n]*\\n)*)"
         + "^(?<indent>[ \\t]*)(?<kind>def|class)[ \\t]+"
@@ -61,16 +33,6 @@ public class PythonParser extends Parser
     );
 
     private static final Pattern DECORATOR_NAME_PATTERN = Pattern.compile(FQ_NAME);
-
-    // // Must be applied iteratively, to remove all {...} and (...).
-    // private static final Pattern PARAM_PREPROCESSOR1 = Pattern.compile(
-    //     "\\{[^\\{]*\\}|\\([^\\(]*\\)|"
-    // );
-    //
-    // // Applied once (after PARAM_PREPROCESSOR1), to remove lambda parameter list declarations
-    // private static final Pattern PARAM_PREPROCESSOR2 = Pattern.compile(
-    //     "lambda\\b((?!\\blambda\\b)[^\\[:]|" + bracketExprRegex("\\[", "\\]") + ")*:"
-    // );
 
     // Applied iteratively, to remove all "{...}", "(...)", "[...]" and "lambda...:", all of which
     // may introduce symbols that interfere with parameter parsing. (Note: we don't bother removing
@@ -101,60 +63,6 @@ public class PythonParser extends Parser
         return "Python";
     }
 
-    // @Override
-    // public void parse(SourceFile file)
-    // {
-    //     var content = new CensoredString(file.getContent());
-    //     content.censor(MAIN_CENSOR_PATTERN);
-    //
-    //     var defnSet = new TreeSet<ScopedDefinition>((d1, d2) -> d1.getStartPos() - d2.getStartPos());
-    //
-    //     while(true)
-    //     {
-    //         System.out.printf("\n---start---\n%s---end---\n", content.censored());
-    //         var matcher = content.matcher(DECLARATION_PATTERN);
-    //         if(!matcher.find())
-    //         {
-    //             break;
-    //         }
-    //
-    //         ScopedDefinition defn;
-    //         switch(matcher.uncensoredGroup("kind").get())
-    //         {
-    //             case "class":
-    //                 defn = makeTypeDefinition(file, matcher);
-    //                 break;
-    //
-    //             case "def":
-    //                 defn = makeMethodDefinition(file, matcher);
-    //                 break;
-    //
-    //             default:
-    //                 throw new AssertionError();
-    //         }
-    //
-    //         addModifiers(defn, matcher);
-    //
-    //         defnSet.tailSet(defn, false).stream()
-    //                .takeWhile(existingDefn -> existingDefn.getStartPos() <= defn.getEndPos())
-    //                .forEach(defn::addNested);
-    //
-    //         defn.getNested().forEach(defnSet::remove);
-    //         defnSet.add(defn);
-    //
-    //         if(matcher.hasGroup("tail"))
-    //         {
-    //             content.censor(matcher.start(), matcher.start("tail"));
-    //         }
-    //         else
-    //         {
-    //             content.censor(matcher);
-    //         }
-    //     }
-    //
-    //     defnSet.forEach(file::addNested);
-    // }
-
     @Override
     public void parse(SourceFile file)
     {
@@ -162,7 +70,6 @@ public class PythonParser extends Parser
         content.censor(MAIN_CENSOR_PATTERN);
         content.censor(NEWLINE_ESCAPE_CENSOR_PATTERN, ' ');
 
-        // var defnSet = new TreeSet<ScopedDefinition>((d1, d2) -> d1.getStartPos() - d2.getStartPos());
         var defnList = new LinkedList<ScopedDefinition>();
         defnList.add(file);
 
@@ -196,36 +103,11 @@ public class PythonParser extends Parser
                     throw new AssertionError();
             }
 
-            // addModifiers(defn, matcher);
-
-            // defnSet.tailSet(defn, false).stream()
-            //        .takeWhile(existingDefn -> existingDefn.getStartPos() <= defn.getEndPos())
-            //        .forEach(defn::addNested);
-            //
-            // defn.getNested().forEach(defnSet::remove);
-            // defnSet.add(defn);
-            // if(matcher.hasGroup("tail"))
-            // {
-            //     content.censor(matcher.start(), matcher.start("tail"));
-            // }
-            // else
-            // {
-            //     content.censor(matcher);
-            // }
-
-            // var start = defn.getStartPos();
-            // while(defnList.getLast().getEndPos() < start)
-            // {
-            //     defnList.removeLast();
-            // }
-            // defnList.getLast().addNested(defn);
             containing.addNested(defn);
             defnList.add(defn);
 
             content.censor(start, matcher.start("body"));
         }
-
-        // defnSet.forEach(file::addNested);
     }
 
     private static TypeDefinition makeTypeDefinition(SourceFile file,
@@ -368,6 +250,7 @@ public class PythonParser extends Parser
             }
 
             // @property, @...setter?
+            // @dataclass?
         }
     }
 }

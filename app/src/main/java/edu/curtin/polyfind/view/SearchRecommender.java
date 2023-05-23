@@ -40,39 +40,41 @@ public class SearchRecommender
         superTypes.sort(null);
         for(var type : superTypes)
         {
-            var defn = type.getDefinition();
-            if(defn == null) { continue; }
+            type.getDefinition().ifPresent(defn ->
+            {
+                // if(type.isClass())
+                // {
+                //     out.print("class ", GREEN);
+                // }
+                // else
+                // {
+                //     out.print("interface ", RED);
+                // }
+                out.print(Common.construct(type), type.isClass() ? GREEN : RED);
+                out.print(" ");
+                out.print(type.getName(), BRIGHT_WHITE);
 
-            if(type.isClass())
-            {
-                out.print("class ", GREEN);
-            }
-            else
-            {
-                out.print("interface ", RED);
-            }
-            out.print(type.getName(), BRIGHT_WHITE);
+                // var typeParams = defn.getTypeParams();
+                // if(typeParams != null)
+                // {
+                //     out.print(typeParams, GREY);
+                // }
+                defn.getTypeParams().ifPresent(tp -> out.print(tp, GREY));
+                out.println(":");
 
-            // var typeParams = defn.getTypeParams();
-            // if(typeParams != null)
-            // {
-            //     out.print(typeParams, GREY);
-            // }
-            defn.getTypeParams().ifPresent(tp -> out.print(tp, GREY));
-            out.println(":");
-
-            var methods = type.getMethods();
-            if(methods.isEmpty())
-            {
-                out.println("  [No methods overridden in subclasses; no polymorphism is possible!]");
-            }
-            else
-            {
+                var methods = type.getMethods();
+                if(methods.isEmpty())
+                {
+                    out.println("  [No methods overridden in subclasses; no polymorphism is possible!]");
+                }
+                else
+                {
+                    out.newLine();
+                    showCommand(methods, path);
+                }
                 out.newLine();
-                showCommand(methods, path);
-            }
-            out.newLine();
-            out.newLine();
+                out.newLine();
+            });
         }
 
         if(superTypes.size() > 1)

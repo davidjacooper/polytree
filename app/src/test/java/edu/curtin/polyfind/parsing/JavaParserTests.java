@@ -8,7 +8,6 @@ import org.junit.jupiter.params.provider.*;
 import static org.assertj.core.api.Assertions.*;
 import static org.assertj.core.api.InstanceOfAssertFactories.*;
 
-import org.apache.commons.io.IOUtils;
 import java.io.*;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import java.util.*;
@@ -139,7 +138,6 @@ class JavaParserTests
     {
         var sourceFile = new SourceFile(
             "TestData.java",
-            // "void testMethod1(int x) throws X, Y<Z> {}");
             "void testMethod1(int x) throws X, Y<Z> {}");
 
         new JavaParser().parse(sourceFile);
@@ -165,7 +163,6 @@ class JavaParserTests
         var sourceFile = new SourceFile(
             "TestData.java",
             code);
-            // IOUtils.toString(getClass().getResourceAsStream("TestData.java"), UTF_8));
 
         new JavaParser().parse(sourceFile);
         var typeDefs = sourceFile.walk(TypeDefinition.class).toList();
