@@ -1,5 +1,6 @@
 package edu.curtin.polyfind.parsing;
 import edu.curtin.polyfind.definitions.*;
+import edu.curtin.polyfind.languages.*;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.*;
@@ -14,6 +15,9 @@ import java.util.stream.*;
 
 class PythonParserTests
 {
+    private static final String FILE = "test_data.py";
+    private static final Language LANGUAGE = new LanguageSet().getByExtension("py").get();
+
     private <E> Set<E> set(Stream<E> stream)
     {
         return new HashSet<>(stream.toList());
@@ -24,7 +28,7 @@ class PythonParserTests
     void decorators(String modifiers)
     {
         var sourceFile = new SourceFile(
-            "test_data.py",
+            FILE, LANGUAGE,
             String.format(
                 "%s\nclass TestType: pass\n%s\ndef testMethod(): pass\n",
                 modifiers, modifiers));
@@ -42,7 +46,7 @@ class PythonParserTests
     void knownDecorators()
     {
         var sourceFile = new SourceFile(
-            "test_data.py",
+            FILE, LANGUAGE,
             "@classmethod\ndef method1(): pass\n"
             + "@staticmethod\ndef method2(): pass\n"
             + "@abstractmethod\ndef method3(): pass\n"
@@ -66,7 +70,7 @@ class PythonParserTests
     void methodParameters()
     {
         var sourceFile = new SourceFile(
-            "test_data.py",
+            FILE, LANGUAGE,
             "def testMethod(a, bc: de, fg = lambda hi, jk = lm: no, pq: rs[tu] = 'vw'): pass");
 
         new PythonParser().parse(sourceFile);
@@ -86,7 +90,7 @@ class PythonParserTests
     void methodReturnTypes(String returnType)
     {
         var sourceFile = new SourceFile(
-            "test_data.py",
+            FILE, LANGUAGE,
             String.format("def testMethod(x, y) -> %s: pass", returnType));
 
         new PythonParser().parse(sourceFile);
@@ -98,13 +102,12 @@ class PythonParserTests
     @Test
     void inheritance() throws IOException
     {
-        var code =
+        var sourceFile = new SourceFile(
+            FILE, LANGUAGE,
             "class TestClassA: pass\n"
             + "class TestClassB(metaclass=ABCMeta, TestClassA): pass\n"
             + "class TestClassC(TestInterfaceX): pass\n"
-            + "class TestClassD(ABC, TestClassB, TestInterfaceX, TestInterfaceY): pass\n";
-
-        var sourceFile = new SourceFile("test_data.py", code);
+            + "class TestClassD(ABC, TestClassB, TestInterfaceX, TestInterfaceY): pass\n");
 
         new PythonParser().parse(sourceFile);
         var typeDefs = sourceFile.walk(TypeDefinition.class).toList();
@@ -129,7 +132,7 @@ class PythonParserTests
     void nesting()
     {
         var sourceFile = new SourceFile(
-            "test_data.py",
+            FILE, LANGUAGE,
             "class A:\n"
             + "  def m1(): pass\n"
             + "  def m2():\n"

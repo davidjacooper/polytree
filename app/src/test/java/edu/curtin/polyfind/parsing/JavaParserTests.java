@@ -1,5 +1,6 @@
 package edu.curtin.polyfind.parsing;
 import edu.curtin.polyfind.definitions.*;
+import edu.curtin.polyfind.languages.*;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.*;
@@ -16,6 +17,9 @@ import java.util.stream.*;
 
 class JavaParserTests
 {
+    private static final String FILE = "TestData.java";
+    private static final Language LANGUAGE = new LanguageSet().getByExtension("java").get();
+
     private <E> Set<E> set(Stream<E> stream)
     {
         return new TreeSet<>(stream.toList());
@@ -26,7 +30,7 @@ class JavaParserTests
     void typeConstructs(String construct)
     {
         var sourceFile = new SourceFile(
-            "TestData.java",
+            FILE, LANGUAGE,
             String.format(
                 "%s TestType%s {}",
                 construct,
@@ -46,7 +50,7 @@ class JavaParserTests
     void anonClass()
     {
         var sourceFile = new SourceFile(
-            "TestData.java",
+            FILE, LANGUAGE,
             "Object o = new TestType(42, \"abc\") {};");
 
         new JavaParser().parse(sourceFile);
@@ -62,7 +66,7 @@ class JavaParserTests
     void typeParameters(String typeParams)
     {
         var sourceFile = new SourceFile(
-            "TestData.java",
+            FILE, LANGUAGE,
             String.format("class%s TestType {} %s void testMethod() {}", typeParams, typeParams));
 
         new JavaParser().parse(sourceFile);
@@ -79,7 +83,7 @@ class JavaParserTests
     void modifiers(String modifiers)
     {
         var sourceFile = new SourceFile(
-            "TestData.java",
+            FILE, LANGUAGE,
             String.format("%s class TestType {} %s void testMethod() {}", modifiers, modifiers));
 
         new JavaParser().parse(sourceFile);
@@ -100,7 +104,7 @@ class JavaParserTests
     void methodReturnTypes(String returnType)
     {
         var sourceFile = new SourceFile(
-            "TestData.java",
+            FILE, LANGUAGE,
             String.format(
                 "public %s testMethod1(int x) {} %s testMethod2() {}",
                 returnType, returnType));
@@ -117,7 +121,7 @@ class JavaParserTests
     void methodParameters()
     {
         var sourceFile = new SourceFile(
-            "TestData.java",
+            FILE, LANGUAGE,
             "void testMethod1(X y, @Ann(123) final int[] _abc, List<@Ann X>[]@Ann[] _xyz) {}");
 
         new JavaParser().parse(sourceFile);
@@ -137,7 +141,7 @@ class JavaParserTests
     void methodThrows()
     {
         var sourceFile = new SourceFile(
-            "TestData.java",
+            FILE, LANGUAGE,
             "void testMethod1(int x) throws X, Y<Z> {}");
 
         new JavaParser().parse(sourceFile);
@@ -150,7 +154,8 @@ class JavaParserTests
     @Test
     void inheritance()
     {
-        var code =
+        var sourceFile = new SourceFile(
+            FILE, LANGUAGE,
             "package com.example.test;"
             + "public class TestClassA {}"
             + "abstract class TestClassB extends TestClassA {} "
@@ -158,11 +163,7 @@ class JavaParserTests
             + "abstract class TestClassD extends TestClassB implements TestInterfaceX, TestInterfaceY {}"
             + "interface TestInterfaceX {}"
             + "interface TestInterfaceY {}"
-            + "interface TestInterfaceZ extends TestInterfaceX, TestInterfaceY {}";
-
-        var sourceFile = new SourceFile(
-            "TestData.java",
-            code);
+            + "interface TestInterfaceZ extends TestInterfaceX, TestInterfaceY {}");
 
         new JavaParser().parse(sourceFile);
         var typeDefs = sourceFile.walk(TypeDefinition.class).toList();
@@ -188,7 +189,7 @@ class JavaParserTests
     void nesting()
     {
         var sourceFile = new SourceFile(
-            "TestData.java",
+            FILE, LANGUAGE,
             "class A { void m1(); void m2() { class B {} int m3(int x) {} } class C {}}");
 
         new JavaParser().parse(sourceFile);

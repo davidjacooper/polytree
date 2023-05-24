@@ -4,6 +4,35 @@ import edu.curtin.polyfind.definitions.*;
 import java.util.*;
 import java.util.regex.*;
 
+/**
+ * Parses parts of Python code using regular expressions. We only parse a small fraction of the
+ * actual language syntax, as necessary to reconstruct the large-scale structure of input code.
+ *
+ * PythonParser uses the following basic approach:
+ *
+ * 1. Apply a single giant regex (DECLARATION_PATTERN) to search the text for a method or type
+ *    (class/interface) declaration. The regex will match the entire scope of the declaration as
+ *    determined by its indentation.
+ * 2. Record the details of this declaration.
+ * 3. "Censor" the first line of this declaration, to hide it from further regex applications.
+ *    (See CensoredString.java.)
+ * 4. Repeat until no more declarations can be found.
+ *
+ * This discovers declarations top-to-bottom, even though many will overlap with one another. The
+ * iterative regex application gives us recursive parsing capabilities, even though regexes are not
+ * themselves recursive.
+ *
+ * Further notes:
+ * - As a point of comparison, JavaParser finds declarations in a different order, from inner-most
+ *   to outer-most.
+ *
+ * - Before anything else, we must also censor string literals and comments, to avoid being
+ *   fooled by their contents.
+ *
+ * - PythonParser _does not validate_ anything. It is wildly permissive of various combinations of
+ *   constructs that are illegal and even nonsensical. What it does not recognise it simply ignores.
+ *
+ */
 public class PythonParser extends Parser
 {
     private static final Pattern MAIN_CENSOR_PATTERN;
@@ -57,11 +86,11 @@ public class PythonParser extends Parser
 
     public PythonParser() {}
 
-    @Override
-    public String language()
-    {
-        return "Python";
-    }
+    // @Override
+    // public String language()
+    // {
+    //     return "Python";
+    // }
 
     @Override
     public void parse(SourceFile file)

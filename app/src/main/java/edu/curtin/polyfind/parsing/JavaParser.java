@@ -5,6 +5,40 @@ import java.util.*;
 import java.util.regex.*;
 import java.util.stream.*;
 
+/**
+ * Parses parts of Java code using regular expressions. We only parse a small fraction of the
+ * actual Java language syntax, as necessary to reconstruct the large-scale structure of input code.
+ *
+ * JavaParser uses the following basic approach:
+ *
+ * 1. Apply a single giant regex (DECLARATION_PATTERN) to search the text for a method or type
+ *    (class/interface) declaration. Specifically, we look for one that contains _no further_ such
+ *    declarations.
+ * 2. Record the details of this declaration.
+ * 3. "Censor" the matched text to hide this declaration from further regex applications.
+ *    (See CensoredString.java.)
+ * 4. Repeat until no more declarations can be found.
+ *
+ * This discovers the most deeply-nested declarations first (which genuinely don't contain any other
+ * declarations), then moves "outwards" to their containing declarations, which can be found once
+ * the inner declarations have been censored (hidden). This gives us recursive parsing capabilities,
+ * even though regexes are not themselves recursive. The ordering also lets us discover the nesting
+ * relationships among declarations.
+ *
+ * As a technical detail, we must also intermittently censor other occurrences of brace pairs {...},
+ * because the main regex is prevented from containing these (in un-censored form) within its body.
+ *
+ * Further notes:
+ * - As a point of comparison, PythonParser operates in a top-to-bottom order, finding declarations
+ *   in the order they appear in the code.
+ *
+ * - Before anything else, we must also censor string literals and comments, to avoid being
+ *   fooled by their contents.
+ *
+ * - JavaParser _does not validate_ anything. It is wildly permissive of various combinations of
+ *   constructs that are illegal and even nonsensical. What it does not recognise it simply ignores.
+ *
+ */
 public class JavaParser extends Parser
 {
     private static final Pattern MAIN_CENSOR_PATTERN = Pattern.compile(
@@ -118,11 +152,11 @@ public class JavaParser extends Parser
 
     public JavaParser() {}
 
-    @Override
-    public String language()
-    {
-        return "Java";
-    }
+    // @Override
+    // public String language()
+    // {
+    //     return "Java";
+    // }
 
     @Override
     public void parse(SourceFile file)

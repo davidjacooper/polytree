@@ -1,4 +1,5 @@
 package edu.curtin.polyfind;
+import edu.curtin.polyfind.languages.*;
 import edu.curtin.polyfind.parsing.*;
 import edu.curtin.polyfind.definitions.*;
 import edu.curtin.polyfind.tree.*;
@@ -39,46 +40,29 @@ public class PolyFind implements Callable<Integer>
     {
         try
         {
+            var languageSet = new LanguageSet();
             var treeBuilder = new TreeBuilder();
             try
             {
-                for(var file : Files.walk(directory.toPath()).filter(Files::isRegularFile).toList())
-                                    // .filter(p -> p.toString().endsWith(".java"))
-                                    // .toList())
-                {
-                    var parser = Parser.of(file);
-                    if(parser.isPresent())
+                Files.walk(directory.toPath())
+                    .filter(Files::isRegularFile)
+                    .filter(path -> !path.toFile().getName().startsWith("._"))
+                    .forEach(path ->
                     {
-                        // for(var defn : parser.get().parse(SourceFile.read(file)))
-                        // {
-                        //     treeBuilder.addDefinition(defn);
-                        // }
-                        var sourceFile = SourceFile.read(file);
-                        parser.get().parse(sourceFile);
-                        sourceFile.walk(TypeDefinition.class).forEach(treeBuilder::addDefinition);
-                            // .forEach(defn ->
-                            // {
-                            //     if(defn instanceof TypeDefinition)
-                            //     {
-                            //         treeBuilder.addDefinition((TypeDefinition)defn);
-                            //     }
-                            // });
-                    }
-
-                    // Parser.of(file).ifPresent(parser ->
-                    // {
-                    //     var sourceFile = SourceFile.read(file);
-                    //     parser.parse(sourceFile);
-                    //     sourceFile.getNestedRecursive()
-                    //         .forEach(defn ->
-                    //         {
-                    //             if(defn instanceof TypeDefinition)
-                    //             {
-                    //                 treeBuilder.addDefinition((TypeDefinition)defn);
-                    //             }
-                    //         });
-                    // });
-                }
+                        languageSet.getByPath(path).ifPresent(language ->
+                        {
+                            try
+                            {
+                                var sourceFile = SourceFile.read(path, language);
+                                language.getParser().parse(sourceFile);
+                                sourceFile.walk(TypeDefinition.class).forEach(treeBuilder::addDefinition);
+                            }
+                            catch(IOException e)
+                            {
+                                throw new UncheckedIOException(e);
+                            }
+                        });
+                    });
             }
             catch(NoSuchFileException e)
             {
@@ -90,22 +74,29 @@ public class PolyFind implements Callable<Integer>
             var output = Output.withAnsi().ascii(ascii);
             new TreeViewer(output).view(typeNodes);
 
-            String path;
-            try
-            {
-                path = directory.getCanonicalPath();
-            }
-            catch(IOException e)
-            {
-                path = directory.getAbsolutePath();
-            }
-            new SearchRecommender(output).useAck(!useGrep).showCommands(typeNodes, path);
+            languageSet.getAll().forEach(language ->
+                new SearchRecommender(output, language)
+                    .useAck(!useGrep)
+                    .showCommands(typeNodes, getAbsPath(directory))
+            );
             return 0;
         }
-        catch(IOException e)
+        catch(IOException | UncheckedIOException e)
         {
             System.err.println("An IO error occurred: " + e.getMessage());
             return 1;
+        }
+    }
+
+    private String getAbsPath(File directory)
+    {
+        try
+        {
+            return directory.getCanonicalPath();
+        }
+        catch(IOException e)
+        {
+            return directory.getAbsolutePath();
         }
     }
 }

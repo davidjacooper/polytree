@@ -1,4 +1,5 @@
 package edu.curtin.polyfind.view;
+import edu.curtin.polyfind.languages.*;
 import edu.curtin.polyfind.tree.*;
 import static edu.curtin.polyfind.view.Output.*;
 
@@ -8,12 +9,14 @@ import java.util.regex.*;
 
 public class SearchRecommender
 {
-    private Output out;
+    private final Output out;
+    private final Language language;
     private boolean useAck = true;
 
-    public SearchRecommender(Output out)
+    public SearchRecommender(Output out, Language language)
     {
         this.out = out;
+        this.language = language;
     }
 
     public SearchRecommender useAck(boolean useAck)
@@ -25,7 +28,7 @@ public class SearchRecommender
     public void showCommands(Collection<TypeNode> types, String path)
     {
         out.newLine();
-        out.println("Commands for finding polymorphic method calls", BRIGHT_MAGENTA);
+        out.println("Commands for finding polymorphic " + language.getName() + " method calls", BRIGHT_MAGENTA);
         out.println("(Copy and paste one of the following commands to find method call sites for a particular superclass/interface, or for all superclasses/interfaces at once.)");
         out.newLine();
 
@@ -42,23 +45,10 @@ public class SearchRecommender
         {
             type.getDefinition().ifPresent(defn ->
             {
-                // if(type.isClass())
-                // {
-                //     out.print("class ", GREEN);
-                // }
-                // else
-                // {
-                //     out.print("interface ", RED);
-                // }
                 out.print(Common.construct(type), type.isClass() ? GREEN : RED);
                 out.print(" ");
                 out.print(type.getName(), BRIGHT_WHITE);
 
-                // var typeParams = defn.getTypeParams();
-                // if(typeParams != null)
-                // {
-                //     out.print(typeParams, GREY);
-                // }
                 defn.getTypeParams().ifPresent(tp -> out.print(tp, GREY));
                 out.println(":");
 
@@ -89,25 +79,22 @@ public class SearchRecommender
 
     private void showCommand(List<MethodNode> methods, String path)
     {
+        var gen = language.getCallRegexGenerator();
+
         if(useAck)
         {
-            out.print("  ack -C10 --java ");
+            out.print("  ack -C10 ");
+            out.print(gen.getAckOptions());
+            out.print(" ");
         }
         else
         {
             out.print("  grep -nPR -C10 --color=auto ");
+            out.print(gen.getGrepOptions());
+            out.print(" ");
         }
 
-        var methodPatterns = methods.stream()
-            .map(m -> "(?<!" + m.getDefinition()
-                                .getReturnType().orElse("") // FIXME: Java-specific
-                                .replaceAll("\\[", "\\\\[")
-                                .replaceAll("\\]", "\\\\]") + " )" + m.getName())
-            .toList();
-
-        out.print("'\\b(");
-        out.printJoin("|", DEFAULT, methodPatterns, CYAN);
-        out.print(")\\s*\\(' ");
+        gen.generate(out, methods);
         out.println("'" + path.replaceAll("'", "'\''") + "'", ORANGE);
     }
 }
