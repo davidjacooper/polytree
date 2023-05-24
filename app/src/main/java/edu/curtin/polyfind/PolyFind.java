@@ -14,8 +14,8 @@ import java.util.concurrent.Callable;
 
 @CommandLine.Command(name = "polyfind",
                      mixinStandardHelpOptions = true,
-                     version = "0.1",
-                     description = "Displays the inheritance structure of a student's Java application, and recommends ack/grep commands for finding polymorphic method call sites.",
+                     version = "0.2",
+                     description = "Displays the inheritance structure of a student's Java/Python application, and recommends ack/grep commands for finding polymorphic method call sites.",
                      footer = "Copyright (c) 2023 by David J A Cooper.")
 public class PolyFind implements Callable<Integer>
 {
