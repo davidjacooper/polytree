@@ -22,6 +22,11 @@ public class CensoredString
         this(s, s);
     }
 
+    public int length()
+    {
+        return uncensored.length();
+    }
+
     public String uncensored()
     {
         return uncensored;

@@ -5,14 +5,25 @@ import java.util.stream.*;
 
 public class MethodDefinition extends ScopedDefinition
 {
-    private Optional<String> returnType = Optional.empty();
+    private Optional<QualifiedTypeName> returnType = Optional.empty();
     private boolean isConstructor = false;
     private final List<ParameterDefinition> parameters = new ArrayList<>();
-    private final Set<String> checkedExceptions = new HashSet<>();
+    private final Set<QualifiedTypeName> checkedExceptions = new HashSet<>();
+
+    // public MethodDefinition(SourceFile file, int startPos, int endPos, String name)
+    // {
+    //     super(file, startPos, endPos, name, ScopeType.OPAQUE);
+    // }
+    //
+    // public MethodDefinition(SourceFile file, int startPos, int endPos, String name, ScopeType scopeType)
+    // {
+    //     super(file, startPos, endPos, name, scopeType);
+    // }
 
     public MethodDefinition(SourceFile file, int startPos, int endPos, String name)
     {
         super(file, startPos, endPos, name);
+        setDescendable(false);
     }
 
     public void addParameter(ParameterDefinition param)
@@ -20,14 +31,18 @@ public class MethodDefinition extends ScopedDefinition
         parameters.add(param);
     }
 
-    public void addCheckedException(String exception)
+    public QualifiedTypeName addCheckedException(List<String> names, String displayName)
     {
-        checkedExceptions.add(exception);
+        var qName = new QualifiedTypeName(this, names, displayName, false);
+        checkedExceptions.add(qName);
+        return qName;
     }
 
-    public void setReturnType(String returnType)
+    public QualifiedTypeName setReturnType(List<String> names, String displayName)
     {
-        this.returnType = Optional.of(returnType);
+        var qName = new QualifiedTypeName(this, names, displayName, false);
+        this.returnType = Optional.of(qName);
+        return qName;
     }
 
     public void setConstructor(boolean isConstructor)
@@ -35,26 +50,31 @@ public class MethodDefinition extends ScopedDefinition
         this.isConstructor = isConstructor;
     }
 
-    public Optional<String> getReturnType()            { return returnType; }
-    public boolean isConstructor()                     { return isConstructor; }
-    public Stream<ParameterDefinition> getParameters() { return parameters.stream(); }
-    public Stream<String> getCheckedExceptions()       { return checkedExceptions.stream(); }
+    public Optional<QualifiedTypeName> getReturnType()      { return returnType; }
+    public boolean isConstructor()                          { return isConstructor; }
+    public Stream<ParameterDefinition> getParameters()      { return parameters.stream(); }
+    public Stream<QualifiedTypeName> getCheckedExceptions() { return checkedExceptions.stream(); }
 
     @Override
     public String toString()
     {
-        return "[" + getModifiersString() + "]"
-            + getTypeParams().orElse("") + " "
-            + returnType.orElse("?") + " "
+        var mods = getModifiersString().strip();
+        var typeParams = getTypeParams().orElse("").strip();
+
+        return "`"
+            + mods + (mods.isEmpty() ? "" : " ")
+            + typeParams + (typeParams.isEmpty() ? "" : " ")
+            + returnType.map(QualifiedName::toString).orElse("?") + " "
             + getName() + "("
             + parameters.stream()
-                        .map(p -> p.getType().orElse(p.getName()))
-                        .collect(Collectors.joining(",")) + ")";
+                        .map(p -> p.getType().map(QualifiedName::toString).orElse(p.getName()))
+                        .collect(Collectors.joining(",")) + ")"
+            + "`";
     }
 
-    @Override
-    public Optional<String> getPublicScope()
-    {
-        return Optional.empty();
-    }
+    // @Override
+    // public Optional<String> getPublicScope()
+    // {
+    //     return Optional.empty();
+    // }
 }

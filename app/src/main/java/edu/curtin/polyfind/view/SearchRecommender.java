@@ -13,6 +13,12 @@ public class SearchRecommender
     private final Language language;
     private boolean useAck = true;
 
+    // private static final Map<TypeCategory,String> TYPE_COLOURS = Map.of(
+    //     TypeCategory.CLASS, GREEN,
+    //     TypeCategory.INTERFACE, RED,
+    //     TypeCategory.OTHER, BLUE
+    // );
+
     public SearchRecommender(Output out, Language language)
     {
         this.out = out;
@@ -45,7 +51,7 @@ public class SearchRecommender
         {
             type.getDefinition().ifPresent(defn ->
             {
-                out.print(Common.construct(type), type.isClass() ? GREEN : RED);
+                out.print(type.getConstruct(), Common.TYPE_COLOURS.get(type.getCategory()));
                 out.print(" ");
                 out.print(type.getName(), BRIGHT_WHITE);
 

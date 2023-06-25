@@ -117,7 +117,7 @@ public class TreeViewer
             for(var otherParent : otherParents)
             {
                 out.print(abovePrefix);
-                out.print(Common.construct(type), GREY);
+                out.print(type.getConstruct(), GREY);
                 out.print(" ");
                 out.println(otherParent.getName(), GREY);
             }
@@ -129,22 +129,27 @@ public class TreeViewer
         typeDefn.ifPresent(d ->
             d.getModifiers().filter(m -> m != Modifier.PUBLIC).forEach(mod ->
             {
-                out.print(modStr(mod.toString()), mod == Modifier.ABSTRACT ? MAGENTA : ORANGE);
+                out.print(modStr(mod), mod == Modifier.ABSTRACT ? MAGENTA : ORANGE);
                 out.print(" ");
             })
         );
-        out.print(Common.construct(type), type.isClass() ? GREEN : RED);
+        // out.print(Common.construct(type), type.isClass() ? GREEN : RED);
+        out.print(type.getConstruct(), Common.TYPE_COLOURS.get(type.getCategory()));
         out.print(" ");
         out.print(type.getName(), BRIGHT_WHITE);
 
         typeDefn.ifPresent(d -> d.getTypeParams().ifPresent(tp -> out.print(tp, GREY)));
 
-        type.getSourceFile().ifPresentOrElse(
-            f -> f.getPackage().ifPresentOrElse(
-                name -> out.printRight("[package " + name + "]", GREY),
-                () -> out.newLine()),
-            () -> out.println(" [no source]", GREY)
-        );
+        // type.getSourceFile().ifPresentOrElse(
+        //     f -> f.getPackage().ifPresentOrElse(
+        //         name -> out.printRight("[package " + name + "]", GREY),
+        //         () -> out.newLine()),
+        //     () -> out.println(" [no source]", GREY)
+        // );
+        if(type instanceof ExternalTypeNode)
+        {
+            out.println(" [external]", GREY);
+        }
 
         var children = type.getChildren();
         var nChildren = children.size();
@@ -191,7 +196,7 @@ public class TreeViewer
             int nPrivateMethods = 0;
             allMethods.sort(null);
 
-            var allModifiers = new HashMap<MethodNode,TreeSet<String>>();
+            var allModifiers = new HashMap<MethodNode,TreeSet<Modifier>>();
 
             int modifierWidth = 0;
             int typeParamWidth = 0;
@@ -200,12 +205,15 @@ public class TreeViewer
             for(var method : allMethods)
             {
                 var defn = method.getDefinition();
-                var modifiers = new TreeSet<String>();
-                defn.getModifiers().forEach(m -> modifiers.add(m.toString()));
+                // var modifiers = new TreeSet<String>();
+                // defn.getModifiers().forEach(m -> modifiers.add(m.toString()));
+
+                var modifiers = new TreeSet<Modifier>();
+                defn.getModifiers().forEach(modifiers::add);
 
                 allModifiers.put(method, modifiers);
 
-                if(modifiers.contains("private"))
+                if(modifiers.contains(Modifier.PRIVATE))
                 {
                     nPrivateMethods++;
                 }
@@ -213,24 +221,34 @@ public class TreeViewer
                 {
                     if(method.getOverrides() != null)
                     {
-                        modifiers.add("@Override");
+                        modifiers.add(Modifier.OVERRIDE);
                     }
 
-                    if(modifiers.contains("public"))
+                    if(modifiers.contains(Modifier.PUBLIC))
                     {
-                        modifiers.remove("public");
+                        modifiers.remove(Modifier.PUBLIC);
                     }
 
-                    if(!type.isClass() && !modifiers.contains("default"))
-                    {
-                        modifiers.add("abstract");
-                    }
+                    // if(!type.isClass() && !modifiers.contains("default"))
+                    // {
+                    //     modifiers.add("abstract");
+                    // }
 
-                    var params     = method.getParameters();
+                    var params = method.getParameters();
 
-                    typeParamWidth  = max(typeParamWidth, defn.getTypeParams().map(tp -> tp.length() + 1).orElse(0));
-                    modifierWidth   = max(modifierWidth, modifiers.stream().mapToInt(s -> modStr(s).length() + 1).sum());
-                    returnTypeWidth = max(returnTypeWidth, defn.getReturnType().map(rt -> rt.length() + 1).orElse(0));
+                    typeParamWidth = max(
+                        typeParamWidth,
+                        defn.getTypeParams().map(tp -> tp.length() + 1).orElse(0));
+
+                    modifierWidth = max(
+                        modifierWidth,
+                        modifiers.stream().mapToInt(s -> modStr(s).length() + 1).sum());
+
+                    returnTypeWidth = max(
+                        returnTypeWidth,
+                        defn.getReturnType()
+                            .map(rt -> rt.toString().length() + 1).orElse(0));
+
                     signatureWidth  = max(
                         signatureWidth,
                         defn.getName().length() + 2 + (
@@ -247,7 +265,7 @@ public class TreeViewer
                 var defn = method.getDefinition();
                 var modifiers = allModifiers.get(method);
 
-                if(!modifiers.contains("private"))
+                if(!modifiers.contains(Modifier.PRIVATE))
                 {
                     if(first)
                     {
@@ -260,7 +278,7 @@ public class TreeViewer
                     for(var mod : modifiers)
                     {
                         out.print(modStr(mod),
-                                  (mod.equals("@Override") || mod.equals("abstract"))
+                                  (mod == Modifier.OVERRIDE || mod == Modifier.ABSTRACT)
                                       ? MAGENTA
                                       : ORANGE);
                         out.print(" ");
@@ -272,7 +290,7 @@ public class TreeViewer
                     out.print(" ".repeat(typeParamWidth - out.getNChars()));
 
                     out.startCount();
-                    defn.getReturnType().ifPresent(rt -> out.print(rt, GREY));
+                    defn.getReturnType().ifPresent(rt -> out.print(rt.toString(), GREY));
                     out.print(" ".repeat(returnTypeWidth - out.getNChars()));
 
                     out.startCount();
@@ -305,7 +323,11 @@ public class TreeViewer
         }
     }
 
-    private String modStr(String mod)
+    // private String modStr(String mod)
+    // {
+    //     return mod.toString().replaceAll("(?s)\\(.*\\)", "()").replaceAll("\\s+", "");
+    // }
+    private String modStr(Modifier mod)
     {
         return mod.toString().replaceAll("(?s)\\(.*\\)", "()").replaceAll("\\s+", "");
     }

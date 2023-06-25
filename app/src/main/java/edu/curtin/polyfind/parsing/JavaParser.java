@@ -62,20 +62,26 @@ public class JavaParser extends Parser
     private static final Pattern SCOPE_CENSOR_PATTERN = Pattern.compile("\\{[^{}]*\\}");
 
     private static final String NAME = "\\b[A-Za-z_][A-Za-z0-9_]*\\b";
-    private static final String FQ_NAME = NAME + "(\\s*\\.\\s*" + NAME + ")*";
+    private static final String Q_NAME = NAME + "(\\s*\\.\\s*" + NAME + ")*";
 
     private static final Pattern PACKAGE_PATTERN = Pattern.compile(
-        "(^|\\b)package\\s+(?<name>" + FQ_NAME + ")\\s*;");
+        "(^|\\b)package\\s+(?<name>" + Q_NAME + ")\\s*;");
+
+    private static final Pattern IMPORT_PATTERN = Pattern.compile(
+        "(^|\\b)import\\s+(?<static>static\\s+)?"
+        + "(?<name>" + Q_NAME + ")"
+        + "(?<star>\\s*\\.\\s*\\*)?\\s*;"
+    );
 
     private static final String TYPE_ARGS = bracketExprRegex("<", ">");
     private static final String ANNOTATION =
-        "@\\s*" + FQ_NAME + "(\\s*" + bracketExprRegex("\\(", "\\)") + ")?\\s*";
+        "@\\s*" + Q_NAME + "(\\s*" + bracketExprRegex("\\(", "\\)") + ")?\\s*";
     private static final String STD_MODIFIER =
         "(\\b(abstract|default|final|native|non-sealed|open|private|protected|public|static|"
         + "sealed|strictfp|synchronized|transient|volatile)\\b)";
 
     private static final String TYPE_USE =
-        FQ_NAME
+        Q_NAME
         + "(\\s*" + TYPE_ARGS + ")?"
         + "(\\s*(" + ANNOTATION + ")*\\[\\s*\\])*";
 
@@ -152,23 +158,11 @@ public class JavaParser extends Parser
 
     public JavaParser() {}
 
-    // @Override
-    // public String language()
-    // {
-    //     return "Java";
-    // }
-
     @Override
-    public void parse(SourceFile file)
+    public void parse(Project project, SourceFile file)
     {
         var content = new CensoredString(file.getContent());
         content.censor(MAIN_CENSOR_PATTERN);
-
-        var pkgMatcher = content.matcher(PACKAGE_PATTERN);
-        if(pkgMatcher.find())
-        {
-            pkgMatcher.uncensoredGroup("name").ifPresent(file::setPackage);
-        }
 
         var defnSet = new TreeSet<ScopedDefinition>((d1, d2) -> d1.getStartPos() - d2.getStartPos());
 
@@ -205,15 +199,14 @@ public class JavaParser extends Parser
 
                         // All non-default instance methods in an interface are abstract.
                         if(existingDefn instanceof MethodDefinition &&
-                           !existingDefn.is(Modifier.STATIC) &&
-                           !existingDefn.is(Modifier.DEFAULT))
+                            !existingDefn.hasAnyModifier(Modifier.STATIC, Modifier.DEFAULT))
                         {
                             existingDefn.addModifier(Modifier.ABSTRACT);
                         }
                     }
-                    else if(isClass && !(existingDefn.is(Modifier.PRIVATE) ||
-                                         existingDefn.is(Modifier.PROTECTED) ||
-                                         existingDefn.is(Modifier.PUBLIC)))
+                    else if(isClass && !existingDefn.hasAnyModifier(Modifier.PRIVATE,
+                                                                    Modifier.PROTECTED,
+                                                                    Modifier.PUBLIC))
                     {
                         existingDefn.addModifier(Modifier.PACKAGE_PRIVATE);
                     }
@@ -224,26 +217,109 @@ public class JavaParser extends Parser
             content.censor(matcher);
         }
 
-        defnSet.forEach(file::addNested);
+        var scope = findPackage(project, file, content);
+        scope.addImportSuppliers(findImports(project, content));
+        defnSet.forEach(scope::addNested);
+    }
+
+    private static ScopedDefinition findPackage(Project project, SourceFile file, CensoredString content)
+    {
+        ScopedDefinition scope = project;
+        var pkgMatcher = content.matcher(PACKAGE_PATTERN);
+        if(pkgMatcher.find())
+        {
+            for(var name : nameList(pkgMatcher.uncensoredGroup("name").get(), "\\."))
+            {
+                scope = scope.getOrAddNested(
+                    name,
+                    () -> {
+                        var pkg = new PackageDefinition(name, "package");
+                        pkg.setDescendable(true);
+                        return pkg;
+                    }
+                );
+            }
+        }
+
+        var compilationUnit = new AnonymousScope(file, 0, file.getContent().length());
+        compilationUnit.setAscendable(true);
+        compilationUnit.setDescendable(true);
+        scope.addNested(compilationUnit);
+        return compilationUnit;
+    }
+
+    private static List<Import.Supplier> findImports(Project project, CensoredString content)
+    {
+        var imports = new ArrayList<Import.Supplier>();
+        var matcher = content.matcher(IMPORT_PATTERN);
+        while(matcher.find())
+        {
+            var names = nameList(matcher.uncensoredGroup("name").get(), "\\.");
+
+            if(matcher.hasGroup("star"))
+            {
+                imports.add(() ->
+                    project.resolveLocally(ScopedDefinition.class, names)
+                        .findFirst()
+                        .stream()
+                        .flatMap(ScopedDefinition::getNested)
+                        .flatMap(ScopedDefinition::getNamedScopes)
+                        .filter(subDefn ->
+                            (subDefn instanceof TypeDefinition &&
+                                subDefn.hasModifier(Modifier.PUBLIC)) ||
+                            (subDefn instanceof MethodDefinition &&
+                                subDefn.hasModifier(Modifier.PUBLIC, Modifier.STATIC) &&
+                                !((MethodDefinition)subDefn).isConstructor())
+                        )
+                        .map(subDefn -> new Import(subDefn, subDefn.getName()))
+                );
+            }
+            else
+            {
+                imports.add(() -> project
+                    .resolveLocally(ScopedDefinition.class, names)
+                    .findFirst()
+                    .stream()
+                    .map(defn -> new Import(defn, names.get(names.size() - 1))));
+            }
+        }
+        return imports;
     }
 
     private static TypeDefinition makeNamedTypeDefinition(SourceFile file,
                                                           CensoredString.Matcher matcher)
     {
+        var construct = matcher.uncensoredGroup("construct").get();
+        var category = construct.equals("interface") ? TypeCategory.INTERFACE : TypeCategory.CLASS;
+
         var defn = new TypeDefinition(
             file,
             matcher.start(),
             matcher.end(),
             matcher.uncensoredGroup("typeName").get(),
-            matcher.uncensoredGroup("construct").get()
+            category,
+            construct
         );
+        defn.setAscendable(true);
+        defn.setDescendable(true);
         matcher.uncensoredGroup("typeTypeParams").ifPresent(defn::setTypeParams);
 
-        Stream.of("extends", "implements")
-              .flatMap(kw -> matcher.censoredGroup(kw).stream())
-              .flatMap(s -> s.matcher(TYPE_PATTERN).resultsUncensored())
-              .forEach(defn::addSuperType);
+        addSuperTypes(defn, matcher, "implements", TypeCategory.INTERFACE);
+        addSuperTypes(defn, matcher, "extends", category);
         return defn;
+    }
+
+    private static void addSuperTypes(TypeDefinition defn,
+                                      CensoredString.Matcher matcher,
+                                      String groupKey,
+                                      TypeCategory categoryHint)
+    {
+        matcher.censoredGroup(groupKey)
+            .stream()
+            .flatMap(cs -> cs.matcher(TYPE_PATTERN).resultsUncensored())
+            .forEach(s -> defn.addSuperType(nameList(s, "\\."), s)
+                .categoryHint(categoryHint)
+                .constructHint((categoryHint == TypeCategory.INTERFACE) ? "interface" : "class"));
     }
 
     private static TypeDefinition makeAnonTypeDefinition(SourceFile file,
@@ -254,10 +330,14 @@ public class JavaParser extends Parser
             file,
             start,
             matcher.end(),
-            String.format("[anonymous class at %s:%s]", file.getName(), start),
+            String.format("[anonymous class at %s:%s]", file.getPath(), start),
+            TypeCategory.CLASS,
             "class"
         );
-        matcher.uncensoredGroup("superType").ifPresent(defn::addSuperType);
+        defn.setAscendable(true);
+        defn.setDescendable(false);
+        matcher.uncensoredGroup("superType")
+            .ifPresent(s -> defn.addSuperType(nameList(s, "\\."), s));
         return defn;
     }
 
@@ -271,9 +351,12 @@ public class JavaParser extends Parser
             matcher.end(),
             matcher.uncensoredGroup("methodName").get()
         );
+        defn.setAscendable(true);
+        defn.setDescendable(false);
 
         matcher.uncensoredGroup("methodTypeParams").ifPresent(defn::setTypeParams);
-        matcher.uncensoredGroup("returnType").ifPresent(defn::setReturnType);
+        matcher.uncensoredGroup("returnType")
+            .ifPresent(s -> defn.setReturnType(nameList(s, "\\."), s));
 
         var paramMatcher = matcher.censoredGroup("params").get().matcher(PARAMETER_PATTERN);
         while(paramMatcher.find())
@@ -285,13 +368,19 @@ public class JavaParser extends Parser
                 paramMatcher.uncensoredGroup("name").get()
             );
             defn.addParameter(paramDefn);
-            paramMatcher.uncensoredGroup("type").ifPresent(paramDefn::setType);
+            paramMatcher.uncensoredGroup("type")
+                .ifPresent(typeStr ->
+                    paramDefn.setType(
+                        new QualifiedTypeName(defn, nameList(typeStr, "\\."), typeStr, false))
+                );
             addModifiers(paramDefn, paramMatcher);
         }
 
         matcher.censoredGroup("throws").stream()
             .flatMap(s -> s.matcher(TYPE_PATTERN).resultsUncensored())
-            .forEach(defn::addCheckedException);
+            .forEach(s -> defn.addCheckedException(nameList(s, "\\."), s)
+                .categoryHint(TypeCategory.CLASS)
+                .constructHint("class"));
 
         return defn;
     }
@@ -302,7 +391,18 @@ public class JavaParser extends Parser
         matcher.censoredGroup("modifiers").get().matcher(MODIFIER_PATTERN).resultsUncensored()
             .forEach(s ->
             {
-                defn.addModifier(Modifier.named(s.strip()));
+                s = s.strip();
+                if(s.equals("@Override"))
+                {
+                    defn.addModifier(Modifier.OVERRIDE);
+                }
+                else
+                {
+                    defn.addModifier(Modifier.named(s));
+                }
             });
     }
+
+    @Override
+    public void postParse(Project project) {}
 }

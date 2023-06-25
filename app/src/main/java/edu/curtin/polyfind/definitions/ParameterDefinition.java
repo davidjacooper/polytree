@@ -4,7 +4,7 @@ import java.util.*;
 
 public class ParameterDefinition extends Definition
 {
-    private Optional<String> type = Optional.empty();
+    private Optional<QualifiedTypeName> type = Optional.empty();
     private Optional<String> defaultValue = Optional.empty();
     private boolean implicit = false;
 
@@ -13,7 +13,7 @@ public class ParameterDefinition extends Definition
         super(file, startPos, endPos, name);
     }
 
-    public void setType(String type)
+    public void setType(QualifiedTypeName type)
     {
         this.type = Optional.of(type);
     }
@@ -28,9 +28,9 @@ public class ParameterDefinition extends Definition
         this.implicit = implicit;
     }
 
-    public Optional<String> getType()         { return type; }
-    public Optional<String> getDefaultValue() { return defaultValue; }
-    public boolean isImplicit() { return implicit; }
+    public Optional<QualifiedTypeName> getType() { return type; }
+    public Optional<String> getDefaultValue()    { return defaultValue; }
+    public boolean isImplicit()                  { return implicit; }
 
     @Override
     public String toString()

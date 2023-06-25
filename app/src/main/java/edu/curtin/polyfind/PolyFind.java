@@ -41,45 +41,58 @@ public class PolyFind implements Callable<Integer>
         try
         {
             var languageSet = new LanguageSet();
-            var treeBuilder = new TreeBuilder();
-            try
-            {
-                Files.walk(directory.toPath())
-                    .filter(Files::isRegularFile)
-                    .filter(path -> !path.toFile().getName().startsWith("._"))
-                    .forEach(path ->
+            var projects = new HashMap<Language,Project>();
+            Files.walk(directory.toPath())
+                .filter(Files::isRegularFile)
+                .filter(path -> !path.toFile().getName().startsWith("._"))
+                .forEach(path ->
+                {
+                    languageSet.getByPath(path).ifPresent(language ->
                     {
-                        languageSet.getByPath(path).ifPresent(language ->
+                        // try
+                        // {
+                        //     var sourceFile = SourceFile.read(path);
+                        //     language.getParser().parse(sourceFile);
+                        //     sourceFile.walk(TypeDefinition.class).forEach(treeBuilder::addDefinition);
+                        // }
+                        // catch(IOException e)
+                        // {
+                        //     throw new UncheckedIOException(e);
+                        // }
+                        try
                         {
-                            try
-                            {
-                                var sourceFile = SourceFile.read(path, language);
-                                language.getParser().parse(sourceFile);
-                                sourceFile.walk(TypeDefinition.class).forEach(treeBuilder::addDefinition);
-                            }
-                            catch(IOException e)
-                            {
-                                throw new UncheckedIOException(e);
-                            }
-                        });
+                            var project = projects.computeIfAbsent(
+                                language,
+                                _l -> new Project(directory.toString(), language));
+
+                            language.getParser().parse(project, SourceFile.read(project, path));
+                        }
+                        catch(IOException e)
+                        {
+                            throw new UncheckedIOException(e);
+                        }
                     });
-            }
-            catch(NoSuchFileException e)
+                });
+
+            projects.forEach((language, project) ->
             {
-                System.err.println("Directory cannot be found: " + e.getMessage());
-                return 1;
-            }
+                var treeBuilder = new TreeBuilder();
+                project.walk(TypeDefinition.class).forEach(treeBuilder::addDefinition);
 
-            var typeNodes = treeBuilder.build();
-            var output = Output.withAnsi().ascii(ascii);
-            new TreeViewer(output).view(typeNodes);
+                var typeNodes = treeBuilder.build();
+                var output = Output.withAnsi().ascii(ascii);
+                new TreeViewer(output).view(typeNodes);
 
-            languageSet.getAll().forEach(language ->
                 new SearchRecommender(output, language)
                     .useAck(!useGrep)
-                    .showCommands(typeNodes, getAbsPath(directory))
-            );
+                    .showCommands(typeNodes, getAbsPath(directory));
+            });
             return 0;
+        }
+        catch(NoSuchFileException e)
+        {
+            System.err.println("Directory cannot be found: " + e.getMessage());
+            return 1;
         }
         catch(IOException | UncheckedIOException e)
         {

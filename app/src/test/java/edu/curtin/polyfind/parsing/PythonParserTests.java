@@ -1,4 +1,5 @@
 package edu.curtin.polyfind.parsing;
+import static edu.curtin.polyfind.parsing.TestUtil.*;
 import edu.curtin.polyfind.definitions.*;
 import edu.curtin.polyfind.languages.*;
 
@@ -8,6 +9,7 @@ import org.junit.jupiter.params.provider.*;
 import static org.assertj.core.api.Assertions.*;
 
 import java.io.*;
+import java.nio.file.*;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import java.util.*;
 import java.util.stream.*;
@@ -15,54 +17,67 @@ import java.util.stream.*;
 
 class PythonParserTests
 {
-    private static final String FILE = "test_data.py";
-    private static final Language LANGUAGE = new LanguageSet().getByExtension("py").get();
+    private static final Path FILE = Path.of("test_data.py");
+    // private static final Language LANGUAGE = new LanguageSet().getByExtension("py").get();
 
-    private <E> Set<E> set(Stream<E> stream)
-    {
-        return new HashSet<>(stream.toList());
-    }
+    // private <E> Set<E> set(Stream<E> stream)
+    // {
+    //     return new HashSet<>(stream.toList());
+    // }
+
+    private Project project = new Project("test_python_project",
+                                          new LanguageSet().getByExtension("py").get());
 
     @ParameterizedTest
     @ValueSource(strings = { "", "@dec1", "@dec2(abc)", "@dec1\n@dec2(abc)", "@dec1(abc)\n@dec2" })
     void decorators(String modifiers)
     {
         var sourceFile = new SourceFile(
-            FILE, LANGUAGE,
+            project, FILE,
             String.format(
                 "%s\nclass TestType: pass\n%s\ndef testMethod(): pass\n",
                 modifiers, modifiers));
 
-        new PythonParser().parse(sourceFile);
+        new PythonParser().parse(project, sourceFile);
 
-        for(var def : sourceFile.walk().filter(d -> d != sourceFile).toList())
-        {
-            assertThat(set(def.getModifiers().map(Modifier::toString)))
-                .containsOnly((modifiers + "\n").split("\n"));
-        }
+        // // for(var def : sourceFile.walk().filter(d -> d != sourceFile).toList())
+        // for(var def : project.walk().filter(d -> d != project).toList())
+        // {
+        //     System.out.printf("def='%s'\n", def);
+        //     assertThat(set(def.getModifiers().map(Modifier::toString)))
+        //         .containsOnly((modifiers + "\n").split("\n"));
+        // }
+
+        assertThat(project.walk())
+            .filteredOn("name", in("TestType", "testMethod"))
+            .allSatisfy(d -> assertThat(d.getModifiers().map(Modifier::toString))
+                .containsOnly((modifiers + "\n").split("\n")));
     }
 
     @Test
     void knownDecorators()
     {
         var sourceFile = new SourceFile(
-            FILE, LANGUAGE,
+            project, FILE,
             "@classmethod\ndef method1(): pass\n"
             + "@staticmethod\ndef method2(): pass\n"
             + "@abstractmethod\ndef method3(): pass\n"
             + "@abc.abstractmethod\ndef method4(): pass\n"
             + "@classmethod\n@abstractmethod\ndef method5(): pass\n");
 
-        new PythonParser().parse(sourceFile);
+        new PythonParser().parse(project, sourceFile);
 
-        assertThat(sourceFile.walk(MethodDefinition.class))
-            .map(d -> set(d.getModifiers()))
-            .containsExactly(
-                Set.of(Modifier.CLASS_METHOD),
-                Set.of(Modifier.STATIC),
-                Set.of(Modifier.ABSTRACT),
-                Set.of(Modifier.ABSTRACT),
-                Set.of(Modifier.ABSTRACT, Modifier.CLASS_METHOD)
+        assertThat(project.walk(MethodDefinition.class))
+            .extracting(
+                Definition::getName,
+                d -> set(d.getModifiers())
+            )
+            .containsOnly(
+                tuple("method1", Set.of(Modifier.CLASS_METHOD)),
+                tuple("method2", Set.of(Modifier.STATIC)),
+                tuple("method3", Set.of(Modifier.ABSTRACT)),
+                tuple("method4", Set.of(Modifier.ABSTRACT)),
+                tuple("method5", Set.of(Modifier.ABSTRACT, Modifier.CLASS_METHOD))
             );
     }
 
@@ -70,13 +85,17 @@ class PythonParserTests
     void methodParameters()
     {
         var sourceFile = new SourceFile(
-            FILE, LANGUAGE,
+            project, FILE,
             "def testMethod(a, bc: de, fg = lambda hi, jk = lm: no, pq: rs[tu] = 'vw'): pass");
 
-        new PythonParser().parse(sourceFile);
+        new PythonParser().parse(project, sourceFile);
 
-        assertThat(sourceFile.walk(MethodDefinition.class).toList().get(0).getParameters())
-            .extracting("name", "type", "defaultValue")
+        assertThat(project.walk(MethodDefinition.class).toList().get(0).getParameters())
+            .extracting(
+                ParameterDefinition::getName,
+                d -> d.getType().map(Object::toString),
+                ParameterDefinition::getDefaultValue
+            )
             .containsExactly(
                 tuple("a",  Optional.empty(),      Optional.empty()),
                 tuple("bc", Optional.of("de"),     Optional.empty()),
@@ -90,12 +109,17 @@ class PythonParserTests
     void methodReturnTypes(String returnType)
     {
         var sourceFile = new SourceFile(
-            FILE, LANGUAGE,
+            project, FILE,
             String.format("def testMethod(x, y) -> %s: pass", returnType));
 
-        new PythonParser().parse(sourceFile);
+        new PythonParser().parse(project, sourceFile);
 
-        assertThat(sourceFile.walk(MethodDefinition.class).toList().get(0).getReturnType())
+        // assertThat(project.walk(MethodDefinition.class).toList().get(0).getReturnType())
+        //     .isEqualTo(Optional.of(returnType));
+        assertThat(project.walk(MethodDefinition.class))
+            // .filteredOn("name", "testMethod")
+            .singleElement()
+            .extracting(d -> d.getReturnType().map(Object::toString))
             .isEqualTo(Optional.of(returnType));
     }
 
@@ -103,17 +127,22 @@ class PythonParserTests
     void inheritance() throws IOException
     {
         var sourceFile = new SourceFile(
-            FILE, LANGUAGE,
+            project, FILE,
             "class TestClassA: pass\n"
             + "class TestClassB(metaclass=ABCMeta, TestClassA): pass\n"
             + "class TestClassC(TestInterfaceX): pass\n"
             + "class TestClassD(ABC, TestClassB, TestInterfaceX, TestInterfaceY): pass\n");
 
-        new PythonParser().parse(sourceFile);
-        var typeDefs = sourceFile.walk(TypeDefinition.class).toList();
+        new PythonParser().parse(project, sourceFile);
+        var typeDefs = project.walk(TypeDefinition.class).toList();
 
         assertThat(typeDefs)
-            .extracting("name", "construct", "metaType", "superTypeSet")
+            .extracting(
+                Definition::getName,
+                TypeDefinition::getConstruct,
+                d -> d.getMetaType().map(Object::toString),
+                d -> sset(d.getSuperTypes())
+            )
             .containsOnly(
                 tuple("TestClassA", "class", Optional.empty(),       Set.of()),
                 tuple("TestClassB", "class", Optional.of("ABCMeta"), Set.of("TestClassA")),
@@ -121,18 +150,39 @@ class PythonParserTests
                 tuple("TestClassD", "class", Optional.empty(),       Set.of("TestClassB", "TestInterfaceX", "TestInterfaceY"))
             );
 
-        assertThat(set(typeDefs.get(1).getModifiers()))
-            .containsExactly(Modifier.ABSTRACT);
+        // assertThat(
+        //     typeDefs.stream()
+        //         .filter(d -> d.getName().equals("TestClassB"))
+        //         .findFirst()
+        //         .get()
+        //         .getModifiers()
+        // )
+        //     .containsOnly(Modifier.ABSTRACT);
 
-        assertThat(set(typeDefs.get(3).getModifiers()))
-            .containsExactly(Modifier.ABSTRACT);
+        assertThat(typeDefs)
+            .filteredOn("name", in("TestClassB", "TestClassD"))
+            .allSatisfy(d -> assertThat(set(d.getModifiers()))
+                .isEqualTo(Set.of(Modifier.ABSTRACT)));
+
+        // assertThat(typeDefs)
+        //     .filteredOn("name", "TestClassB")
+        //     .extracting(d -> set(d.getModifiers()))
+        //     .containsOnly(Set.of(Modifier.ABSTRACT));
+
+        // assertThat(typeDefs)
+        //     .filteredOn("name", "TestClassD")
+        //     .extracting(d -> set(d.getModifiers()))
+        //     .containsOnly(Set.of(Modifier.ABSTRACT));
+        //
+        // assertThat(set(typeDefs.get(3).getModifiers()))
+        //     .containsExactly(Modifier.ABSTRACT);
     }
 
     @Test
     void nesting()
     {
         var sourceFile = new SourceFile(
-            FILE, LANGUAGE,
+            project, FILE,
             "class A:\n"
             + "  def m1(): pass\n"
             + "  def m2():\n"
@@ -142,29 +192,69 @@ class PythonParserTests
             + "  class C(): pass\n    \n"
             + "class D:\n   pass\n");
 
-        new PythonParser().parse(sourceFile);
+        new PythonParser().parse(project, sourceFile);
 
-        assertThat(sourceFile.getNested())
-            .extracting("class", "name")
-            .containsExactly(
-                tuple(TypeDefinition.class, "A"),
-                tuple(TypeDefinition.class, "D")
-            );
+        assertThat(project.getNested()).satisfiesExactly(
+            module -> {
+                assertThat(module)
+                    .extracting("class", "name", "construct")
+                    .containsExactly(PackageDefinition.class, "test_data", "module");
+                assertThat(module.getNested()).satisfiesExactly(
+                    classA -> {
+                        assertThat(classA)
+                            .extracting("class", "name")
+                            .containsExactly(TypeDefinition.class, "A");
+                        assertThat(classA.getNested()).satisfiesExactlyInAnyOrder(
+                            m1 -> assertThat(m1)
+                                .extracting("class", "name")
+                                .containsExactly(MethodDefinition.class, "m1"),
+                            m2 -> {
+                                assertThat(m2)
+                                    .extracting("class", "name")
+                                    .containsExactly(MethodDefinition.class, "m2");
+                                assertThat(m2.getNested()).satisfiesExactly(
+                                    classB -> assertThat(classB)
+                                        .extracting("class", "name")
+                                        .containsExactly(TypeDefinition.class, "B"),
+                                    m3 -> assertThat(m3)
+                                        .extracting("class", "name")
+                                        .containsExactly(MethodDefinition.class, "m3")
+                                );
+                            },
+                            classC -> assertThat(classC)
+                                .extracting("class", "name")
+                                .containsExactly(TypeDefinition.class, "C")
+                        );
+                    },
+                    classD -> assertThat(classD)
+                        .extracting("class", "name")
+                        .containsExactly(TypeDefinition.class, "D")
+                );
+            });
+            // .extracting("class", "name", "construct")
+            // .containsExactly(tuple(PackageDefinition.class, "test_data", "module"));
 
-        assertThat(sourceFile.getNested().toList().get(0).getNested())
-            .extracting("class", "name")
-            .containsExactly(
-                tuple(MethodDefinition.class, "m1"),
-                tuple(MethodDefinition.class, "m2"),
-                tuple(TypeDefinition.class, "C")
-            );
-
-        assertThat(sourceFile.getNested().toList().get(0).getNested().toList().get(1).getNested())
-            .extracting("class", "name")
-            .containsExactly(
-                tuple(TypeDefinition.class, "B"),
-                tuple(MethodDefinition.class, "m3")
-            );
+        // assertThat(project.getNested())
+        //     .extracting("class", "name")
+        //     .containsExactly(
+        //         tuple(TypeDefinition.class, "A"),
+        //         tuple(TypeDefinition.class, "D")
+        //     );
+        //
+        // assertThat(project.getNested().toList().get(0).getNested())
+        //     .extracting("class", "name")
+        //     .containsExactly(
+        //         tuple(MethodDefinition.class, "m1"),
+        //         tuple(MethodDefinition.class, "m2"),
+        //         tuple(TypeDefinition.class, "C")
+        //     );
+        //
+        // assertThat(project.getNested().toList().get(0).getNested().toList().get(1).getNested())
+        //     .extracting("class", "name")
+        //     .containsExactly(
+        //         tuple(TypeDefinition.class, "B"),
+        //         tuple(MethodDefinition.class, "m3")
+        //     );
     }
 }
 

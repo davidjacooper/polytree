@@ -1,6 +1,7 @@
 package edu.curtin.polyfind.parsing;
 import edu.curtin.polyfind.definitions.*;
 
+import java.nio.file.*;
 import java.util.*;
 import java.util.regex.*;
 
@@ -46,7 +47,18 @@ public class PythonParser extends Parser
         "\\\\\\n");
 
     private static final String NAME = "\\b[A-Za-z_][A-Za-z0-9_]*\\b";
-    private static final String FQ_NAME = NAME + "([ \\t]*\\.[ \\t]*" + NAME + ")*";
+    private static final String Q_NAME = NAME + "([ \\t]*\\.[ \\t]*" + NAME + ")*";
+
+    private static final Pattern IMPORT_PATTERN = Pattern.compile(
+        "^[ \\t]*"
+        + "(from[ \\t]+(?<relative>\\.*)(?<from>" + Q_NAME + ")?)?"
+        + "import[ \\t]+((?<star>\\*)|\\(?(?<list>[^\\n]+)\\)?)"
+    );
+
+    private static final Pattern IMPORT_ELEMENT_PATTERN = Pattern.compile(
+        "(?<source>" + Q_NAME + ")"
+        + "([ \\t]+as[ \\t](?<alias>" + NAME + "))?"
+    );
 
     private static final Pattern DECLARATION_PATTERN = Pattern.compile(
         "(?<decorators>(^[ \\t]*@[^\\n]*\\n)*)"
@@ -61,7 +73,7 @@ public class PythonParser extends Parser
         Pattern.MULTILINE
     );
 
-    private static final Pattern DECORATOR_NAME_PATTERN = Pattern.compile(FQ_NAME);
+    private static final Pattern DECORATOR_NAME_PATTERN = Pattern.compile(Q_NAME);
 
     // Applied iteratively, to remove all "{...}", "(...)", "[...]" and "lambda...:", all of which
     // may introduce symbols that interfere with parameter parsing. (Note: we don't bother removing
@@ -72,7 +84,7 @@ public class PythonParser extends Parser
 
     private static final Pattern PARAMETER_PATTERN = Pattern.compile(
         "(?<name>" + NAME + ")"
-        // + "([ \\t]*:[ \\t]*(?<type>" + FQ_NAME + "(" + bracketExprRegex("\\[", "\\]") + ")?))?"
+        // + "([ \\t]*:[ \\t]*(?<type>" + Q_NAME + "(" + bracketExprRegex("\\[", "\\]") + ")?))?"
         + "([ \\t]*:[ \\t]*(?<type>[^=,]+))?"
         + "([ \\t]*=[ \\t]*(?<defaultValue>[^,]+))?"
     );
@@ -81,26 +93,25 @@ public class PythonParser extends Parser
         "(?<meta>\\bmetaclass[ \\t]*=[ \\t]*)?(?<main>[^,]+)"
     );
 
-    private static final Set<String> ABSTRACT_SUPERTYPES =
-        Set.of("ABC", "ABCMeta", "abc.ABC", "abc.ABCMeta");
+    private static final Set<List<String>> ABSTRACT_SUPERTYPES =
+        Set.of(List.of("ABC"), List.of("ABCMeta"),
+               List.of("abc", "ABC"), List.of("abc", "ABCMeta"));
 
     public PythonParser() {}
 
-    // @Override
-    // public String language()
-    // {
-    //     return "Python";
-    // }
-
     @Override
-    public void parse(SourceFile file)
+    public void parse(Project project, SourceFile file)
     {
+        // file.setScopeType(ScopeType.NAMESPACE);
+
         var content = new CensoredString(file.getContent());
         content.censor(MAIN_CENSOR_PATTERN);
         content.censor(NEWLINE_ESCAPE_CENSOR_PATTERN, ' ');
 
         var defnList = new LinkedList<ScopedDefinition>();
-        defnList.add(file);
+        defnList.add(findPackage(project, file));
+
+        var defnBodies = new HashMap<ScopedDefinition,CensoredString>();
 
         while(true)
         {
@@ -135,8 +146,61 @@ public class PythonParser extends Parser
             containing.addNested(defn);
             defnList.add(defn);
 
+            defnBodies.put(defn, matcher.censoredGroup("body").get());
             content.censor(start, matcher.start("body"));
         }
+
+        // for(var defn : defnBodies.keySet())
+        // {
+        //     defn.addImportSuppliers(getImports(defnBodies.get(defn)));
+        // }
+    }
+
+    // private static ScopedDefinition findPackage(Project project, Path path)
+    // {
+    //     ScopedDefinition scope = project;
+    //
+    //     var len = path.getNameCount();
+    //     if(len > 1)
+    //     {
+    //         for(var pathComponent : path.subpath(0, len - 1))
+    //         {
+    //             var name = pathComponent.toString();
+    //             scope = scope.getOrAddNested(name, () -> new PackageDefinition(name, "package"));
+    //         }
+    //     }
+    //
+    //     var name = path.toFile().getName().replaceAll("\\.py$", "");
+    //     if(!name.equals("__init__")) // Package constructor
+    //     {
+    //         scope = scope.getOrAddNested(name, () -> new PackageDefinition(name, "module"));
+    //     }
+    //     return scope;
+    // }
+
+    private static ScopedDefinition findPackage(Project project, SourceFile file)
+    {
+        ScopedDefinition scope = project;
+
+        var pathNames = new ArrayList<String>();
+        file.getPath().forEach(p -> pathNames.add(p.toString()));
+
+        var len = pathNames.size() - 1;
+        var lastName = pathNames.get(len).replaceAll("\\.py$", "");
+        pathNames.remove(len);
+
+        for(var name : pathNames)
+        {
+            scope = scope.getOrAddNested(name, () -> new PackageDefinition(name, "package"));
+        }
+
+        if(!lastName.equals("__init__"))
+        {
+            scope = scope.getOrAddNested(lastName, () -> new PackageDefinition(lastName, "module"));
+        }
+
+        scope.setLocation(file, 0, file.getContent().length());
+        return scope;
     }
 
     private static TypeDefinition makeTypeDefinition(SourceFile file,
@@ -148,6 +212,7 @@ public class PythonParser extends Parser
             matcher.start(),
             matcher.end(),
             matcher.uncensoredGroup("name").get(),
+            TypeCategory.CLASS,
             "class"
         );
 
@@ -160,7 +225,29 @@ public class PythonParser extends Parser
 
             while(superTypeMatcher.find())
             {
-                var superType = superTypeMatcher.uncensoredGroup("main").get().strip();
+                // var superType = superTypeMatcher.uncensoredGroup("main").get().strip();
+                // var abc = ABSTRACT_SUPERTYPES.contains(superType);
+                // System.out.printf("superType=%s, abc=%s\n", superType, abc);
+                // if(abc)
+                // {
+                //     defn.addModifier(Modifier.ABSTRACT);
+                // }
+                //
+                // if(superTypeMatcher.hasGroup("meta"))
+                // {
+                //     defn.setMetaType(nameList(superType, "\\."), superType)
+                //         .categoryHint(TypeCategory.CLASS)
+                //         .constructHint("class");
+                // }
+                // else if(!abc) // If the (non-metaclass) base class is abc.ABC, don't count it as
+                //               // a supertype (as that just clutters things up).
+                // {
+                //     defn.addSuperType(nameList(superType, "\\."), superType)
+                //         .categoryHint(TypeCategory.CLASS)
+                //         .constructHint("class");
+                // }
+                var superTypeDisplay = superTypeMatcher.uncensoredGroup("main").get().strip();
+                var superType = nameList(superTypeDisplay, "\\.");
                 var abc = ABSTRACT_SUPERTYPES.contains(superType);
                 if(abc)
                 {
@@ -169,12 +256,16 @@ public class PythonParser extends Parser
 
                 if(superTypeMatcher.hasGroup("meta"))
                 {
-                    defn.setMetaType(superType);
+                    defn.setMetaType(superType, superTypeDisplay)
+                        .categoryHint(TypeCategory.CLASS)
+                        .constructHint("class");
                 }
                 else if(!abc) // If the (non-metaclass) base class is abc.ABC, don't count it as
                               // a supertype (as that just clutters things up).
                 {
-                    defn.addSuperType(superType);
+                    defn.addSuperType(superType, superTypeDisplay)
+                        .categoryHint(TypeCategory.CLASS)
+                        .constructHint("class");
                 }
             }
         });
@@ -212,7 +303,7 @@ public class PythonParser extends Parser
             if(first)
             {
                 first = false;
-                if(containing instanceof TypeDefinition && !defn.is(Modifier.STATIC))
+                if(containing instanceof TypeDefinition && !defn.hasModifier(Modifier.STATIC))
                 {
                     // The first parameter (self) of non-static methods (and class methods) is
                     // regarded as 'implicit'. We record it, but (typically) its display will be
@@ -223,12 +314,25 @@ public class PythonParser extends Parser
 
             defn.addParameter(paramDefn);
 
-            paramMatcher.uncensoredGroup("type").ifPresent(t -> paramDefn.setType(decodeType(t)));
+            paramMatcher.uncensoredGroup("type").ifPresent(t ->
+            {
+                var typeStr = decodeType(t);
+                paramDefn.setType(
+                    new QualifiedTypeName(defn, nameList(typeStr, "\\."), typeStr, false)
+                        .categoryHint(TypeCategory.CLASS)
+                        .constructHint("class"));
+            });
             paramMatcher.uncensoredGroup("defaultValue").ifPresent(v ->
                 paramDefn.setDefaultValue(v.strip()));
         }
 
-        matcher.uncensoredGroup("returnType").ifPresent(t -> defn.setReturnType(decodeType(t)));
+        matcher.uncensoredGroup("returnType").ifPresent(t ->
+        {
+            var typeStr = decodeType(t);
+            defn.setReturnType(nameList(typeStr, "\\."), typeStr)
+                .categoryHint(TypeCategory.CLASS)
+                .constructHint("class");
+        });
         return defn;
     }
 
@@ -281,5 +385,28 @@ public class PythonParser extends Parser
             // @property, @...setter?
             // @dataclass?
         }
+    }
+
+    // private static List<PythonImportSupplier> getImports(CensoredString content)
+    // {
+    //     var matcher = content.matcher(IMPORT_PATTERN);
+    //     while(matcher.find())
+    //     {
+    //         if(matcher.hasGroup("relative"))
+    //         {
+    //             var source = nameList(matcher.uncensoredGroup("from"));
+    //         }
+    //         else
+    //         {
+    //         }
+    //     }
+    // }
+
+    @Override
+    public void postParse(Project project)
+    {
+        // Trim the top of the package tree. Initially we assume that the entire file path represents the package hierarchy, but generally the package hierarchy may start at a lower branch of the file hierarchy.
+
+        //
     }
 }

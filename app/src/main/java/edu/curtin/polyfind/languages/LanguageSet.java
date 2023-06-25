@@ -12,9 +12,11 @@ public class LanguageSet
     private static Map<String,Supplier<Language>> LANGUAGE_CONSTRUCTORS = Map.of(
         "java", () -> new Language("Java",
                                    new JavaParser(),
+                                   // new NameResolver(),
                                    new JavaCallRegexGenerator()),
         "py",   () -> new Language("Python",
                                    new PythonParser(),
+                                   // new NameResolver(),
                                    new PythonCallRegexGenerator())
     );
 

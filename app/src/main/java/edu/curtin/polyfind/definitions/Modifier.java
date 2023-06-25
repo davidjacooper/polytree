@@ -2,7 +2,7 @@ package edu.curtin.polyfind.definitions;
 
 import java.util.*;
 
-public class Modifier
+public class Modifier implements Comparable<Modifier>
 {
     private static final Map<String,Modifier> mods = new HashMap<>();
 
@@ -10,6 +10,7 @@ public class Modifier
     public static Modifier CLASS_METHOD    = named("classmethod");
     public static Modifier DEFAULT         = named("default");
     public static Modifier FINAL           = named("final");
+    public static Modifier OVERRIDE        = named("override");
     public static Modifier PACKAGE_PRIVATE = named("package-private");
     public static Modifier PRIVATE         = named("private");
     public static Modifier PROTECTED       = named("protected");
@@ -31,5 +32,11 @@ public class Modifier
     public String toString()
     {
         return name;
+    }
+
+    @Override
+    public int compareTo(Modifier other)
+    {
+        return name.compareTo(other.name);
     }
 }

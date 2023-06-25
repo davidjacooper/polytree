@@ -11,7 +11,9 @@ public class JavaCallRegexGenerator implements CallRegexGenerator
     {
         var methodPatterns = methods
             .map(m -> "(?<!" + m.getDefinition()
-                                .getReturnType().orElse("")
+                                .getReturnType()
+                                .map(Object::toString)
+                                .orElse("")
                                 .replaceAll("\\[", "\\\\[")
                                 .replaceAll("\\]", "\\\\]") + " )" + m.getName())
             .toList();
