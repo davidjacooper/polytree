@@ -18,12 +18,6 @@ import java.util.stream.*;
 class PythonParserTests
 {
     private static final Path FILE = Path.of("test_data.py");
-    // private static final Language LANGUAGE = new LanguageSet().getByExtension("py").get();
-
-    // private <E> Set<E> set(Stream<E> stream)
-    // {
-    //     return new HashSet<>(stream.toList());
-    // }
 
     private Project project = new Project("test_python_project",
                                           new LanguageSet().getByExtension("py").get());
@@ -39,14 +33,6 @@ class PythonParserTests
                 modifiers, modifiers));
 
         new PythonParser().parse(project, sourceFile);
-
-        // // for(var def : sourceFile.walk().filter(d -> d != sourceFile).toList())
-        // for(var def : project.walk().filter(d -> d != project).toList())
-        // {
-        //     System.out.printf("def='%s'\n", def);
-        //     assertThat(set(def.getModifiers().map(Modifier::toString)))
-        //         .containsOnly((modifiers + "\n").split("\n"));
-        // }
 
         assertThat(project.walk())
             .filteredOn("name", in("TestType", "testMethod"))
@@ -114,10 +100,7 @@ class PythonParserTests
 
         new PythonParser().parse(project, sourceFile);
 
-        // assertThat(project.walk(MethodDefinition.class).toList().get(0).getReturnType())
-        //     .isEqualTo(Optional.of(returnType));
         assertThat(project.walk(MethodDefinition.class))
-            // .filteredOn("name", "testMethod")
             .singleElement()
             .extracting(d -> d.getReturnType().map(Object::toString))
             .isEqualTo(Optional.of(returnType));
@@ -150,32 +133,10 @@ class PythonParserTests
                 tuple("TestClassD", "class", Optional.empty(),       Set.of("TestClassB", "TestInterfaceX", "TestInterfaceY"))
             );
 
-        // assertThat(
-        //     typeDefs.stream()
-        //         .filter(d -> d.getName().equals("TestClassB"))
-        //         .findFirst()
-        //         .get()
-        //         .getModifiers()
-        // )
-        //     .containsOnly(Modifier.ABSTRACT);
-
         assertThat(typeDefs)
             .filteredOn("name", in("TestClassB", "TestClassD"))
             .allSatisfy(d -> assertThat(set(d.getModifiers()))
                 .isEqualTo(Set.of(Modifier.ABSTRACT)));
-
-        // assertThat(typeDefs)
-        //     .filteredOn("name", "TestClassB")
-        //     .extracting(d -> set(d.getModifiers()))
-        //     .containsOnly(Set.of(Modifier.ABSTRACT));
-
-        // assertThat(typeDefs)
-        //     .filteredOn("name", "TestClassD")
-        //     .extracting(d -> set(d.getModifiers()))
-        //     .containsOnly(Set.of(Modifier.ABSTRACT));
-        //
-        // assertThat(set(typeDefs.get(3).getModifiers()))
-        //     .containsExactly(Modifier.ABSTRACT);
     }
 
     @Test
@@ -231,30 +192,6 @@ class PythonParserTests
                         .containsExactly(TypeDefinition.class, "D")
                 );
             });
-            // .extracting("class", "name", "construct")
-            // .containsExactly(tuple(PackageDefinition.class, "test_data", "module"));
-
-        // assertThat(project.getNested())
-        //     .extracting("class", "name")
-        //     .containsExactly(
-        //         tuple(TypeDefinition.class, "A"),
-        //         tuple(TypeDefinition.class, "D")
-        //     );
-        //
-        // assertThat(project.getNested().toList().get(0).getNested())
-        //     .extracting("class", "name")
-        //     .containsExactly(
-        //         tuple(MethodDefinition.class, "m1"),
-        //         tuple(MethodDefinition.class, "m2"),
-        //         tuple(TypeDefinition.class, "C")
-        //     );
-        //
-        // assertThat(project.getNested().toList().get(0).getNested().toList().get(1).getNested())
-        //     .extracting("class", "name")
-        //     .containsExactly(
-        //         tuple(TypeDefinition.class, "B"),
-        //         tuple(MethodDefinition.class, "m3")
-        //     );
     }
 }
 

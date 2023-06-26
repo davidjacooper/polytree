@@ -7,12 +7,13 @@ import java.util.regex.*;
 public abstract class Parser
 {
     public static final int REGEX_RECURSE_DEPTH = 16;
+
     protected static String bracketExprRegex(String open, String close)
     {
         return
             (open + "(" + "[^" + open + close + "]|").repeat(REGEX_RECURSE_DEPTH)
-            + open + "[^" + open + close + "]*" + close
-            + (")*" + close).repeat(REGEX_RECURSE_DEPTH);
+            + open + "[^" + open + close + "]*+" + close
+            + (")*+" + close).repeat(REGEX_RECURSE_DEPTH);
     }
 
     private static final Pattern NAME_LIST_DELETION = Pattern.compile("[\\[(<].*");

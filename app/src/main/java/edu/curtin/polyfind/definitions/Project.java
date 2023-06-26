@@ -11,7 +11,6 @@ public class Project extends ScopedDefinition
 
     public Project(String name, Language language)
     {
-        // super(name, ScopeType.NAMESPACE);
         super(name);
         this.language = language;
     }
@@ -25,9 +24,6 @@ public class Project extends ScopedDefinition
     {
         return sourceFiles.stream();
     }
-
-    // @Override
-    // public Optional<String> getPublicScope() { ... }
 
     @Override
     public String toString()

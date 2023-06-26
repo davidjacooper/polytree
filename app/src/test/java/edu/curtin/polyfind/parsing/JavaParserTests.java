@@ -20,20 +20,40 @@ import java.util.stream.*;
 class JavaParserTests
 {
     private static final Path FILE = Path.of("TestData.java");
-    // private static final Language LANGUAGE = new LanguageSet().getByExtension("java").get();
 
     private Project project = new Project("test_java_project",
                                           new LanguageSet().getByExtension("java").get());
 
-    // private <E> Set<E> set(Stream<E> stream)
-    // {
-    //     return new TreeSet<>(stream.toList());
-    // }
-    //
-    // private Set<String> sset(Stream<?> stream)
-    // {
-    //     return new TreeSet<>(stream.map(Object::toString).toList());
-    // }
+
+    static Stream<List<String>> longThings()
+    {
+        return Stream.of(
+            List.of("multi-line comments (/*...*/)", "class A{}/*" + ".".repeat(5000) + "*/"),
+            List.of("single-line comments (//...)",  "class A{}//" + ".".repeat(5000)),
+            List.of("strings (\"...\")",             "class A{}\"" + ".".repeat(5000) + "\""),
+            List.of("generics (<...>)",              "class A<" + ".".repeat(5000) + ">{}"),
+            List.of("record header ((...))",         "class A(" + ".".repeat(5000) + "){}"),
+            List.of("scope ({...}",                  "class A{" + ".".repeat(5000) + "}"),
+            List.of("nested scope ({...}", "class A{{{{{{{{{{" + ".".repeat(5000) + "}}}}}}}}}}")
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource("longThings")
+    void longThingsTest(List<String> arg)
+    {
+        var label = arg.get(0);
+        var code = arg.get(1);
+        var sourceFile = new SourceFile(project, FILE, code);
+
+        assertThatNoException()
+            .describedAs("parsing long " + label)
+            .isThrownBy(() -> new JavaParser().parse(project, sourceFile));
+
+        assertThat(project.walk())
+            .filteredOn("name", "A")
+            .singleElement();
+    }
 
 
     @ParameterizedTest
@@ -51,8 +71,6 @@ class JavaParserTests
         new JavaParser().parse(project, sourceFile);
 
         assertThat(project.walk(TypeDefinition.class).toList())
-            // .extracting("name", "construct", "metaType")
-            // .extracting("superTypes")
             .extracting(
                 TypeDefinition::getName,
                 TypeDefinition::getConstruct,
@@ -88,12 +106,6 @@ class JavaParserTests
 
         new JavaParser().parse(project, sourceFile);
 
-        // for(var def : sourceFile.walk().filter(d -> d != sourceFile).toList())
-        // for(var def : project.walk().filter(d -> d != project).toList())
-        // {
-        //     assertThat(def.getTypeParams()).isEqualTo(Optional.of(typeParams));
-        // }
-        //
         assertThat(project.walk())
             .filteredOn("name", in("TestType", "testMethod"))
             .allSatisfy(d -> assertThat(d.getTypeParams())
@@ -111,12 +123,6 @@ class JavaParserTests
 
         new JavaParser().parse(project, sourceFile);
 
-        // for(var def : sourceFile.walk().filter(d -> d != sourceFile).toList())
-        // for(var def : project.walk().filter(d -> d != project).toList())
-        // {
-        //     assertThat(set(def.getModifiers().map(Modifier::toString)))
-        //         .containsOnly((modifiers + " ").split(" "));
-        // }
         assertThat(project.walk())
             .filteredOn("name", in("TestType", "testMethod"))
             .allSatisfy(d -> assertThat(d.getModifiers().map(Modifier::toString))
@@ -203,7 +209,6 @@ class JavaParserTests
         var typeDefs = project.walk(TypeDefinition.class).toList();
 
         assertThat(typeDefs)
-            // .extracting("name",         "construct", "superTypeSet")
             .map(TypeDefinition::getName,
                  TypeDefinition::getConstruct,
                  d -> set(d.getSuperTypes().map(Object::toString)))
@@ -216,10 +221,6 @@ class JavaParserTests
                 tuple("TestInterfaceY", "interface", Set.of()),
                 tuple("TestInterfaceZ", "interface", Set.of("TestInterfaceX", "TestInterfaceY"))
             );
-
-        // assertThat(typeDefs)
-        //     .extracting("sourceFile.package")
-        //     .containsOnly(Optional.of("com.example.test"));
     }
 
     @Test
@@ -266,6 +267,7 @@ class JavaParserTests
                 project, Path.of("ClassA.java"),
                 "package xx.yy.zz; public class A {}"
             ),
+
             new SourceFile(
                 project, Path.of("ClassB.java"),
                 "package xx.yy.zz; class B extends A {}"
@@ -273,22 +275,27 @@ class JavaParserTests
 
             new SourceFile(
                 project, Path.of("ClassC.java"),
-                "package xx.yy.ww; class C extends A {}"
-            ), // Unresolvable -- superclass 'A' is not imported
+                "package xx.yy.ww; class C extends xx.yy.zz.A {}"
+            ), // Fine -- superclass 'A' is fully-qualified
 
             new SourceFile(
                 project, Path.of("ClassD.java"),
-                "package xx.yy.ww; import xx.yy.zz.A; class D extends A {}"
-            ), // Fine -- superclass 'A' imported explicitly
+                "package xx.yy.ww; class D extends A {}"
+            ), // Unresolvable -- superclass 'A' is not imported
 
             new SourceFile(
                 project, Path.of("ClassE.java"),
-                "package xx.yy.ww; import xx.yy.zz.*; class E extends A {}"
-            ), // Fine -- superclass 'A' imported implicitly
+                "package xx.yy.ww; import xx.yy.zz.A; class E extends A {}"
+            ), // Fine -- superclass 'A' imported explicitly
 
             new SourceFile(
                 project, Path.of("ClassF.java"),
-                "package xx.yy.ww; import xx.yy.zz.*; class F extends B {}"
+                "package xx.yy.ww; import xx.yy.zz.*; class F extends A {}"
+            ), // Fine -- superclass 'A' imported implicitly
+
+            new SourceFile(
+                project, Path.of("ClassG.java"),
+                "package xx.yy.ww; import xx.yy.zz.*; class G extends B {}"
             )  // Unresolvable -- superclass 'B' is not public
         );
 
@@ -301,7 +308,7 @@ class JavaParserTests
         var classes = new HashMap<String,TypeDefinition>();
         project.walk(TypeDefinition.class).forEach(d -> classes.put(d.getName(), d));
 
-        for(var name : List.of("B", "D", "E"))
+        for(var name : List.of("B", "C", "E", "F"))
         {
             assertThat(classes.get(name).getSuperTypes())
                 .singleElement()
@@ -310,7 +317,7 @@ class JavaParserTests
                 .isEqualTo(Optional.of(classes.get("A")));
         }
 
-        for(var name : List.of("C", "F"))
+        for(var name : List.of("D", "G"))
         {
             assertThat(classes.get(name).getSuperTypes())
                 .singleElement()

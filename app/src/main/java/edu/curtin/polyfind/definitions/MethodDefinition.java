@@ -10,16 +10,6 @@ public class MethodDefinition extends ScopedDefinition
     private final List<ParameterDefinition> parameters = new ArrayList<>();
     private final Set<QualifiedTypeName> checkedExceptions = new HashSet<>();
 
-    // public MethodDefinition(SourceFile file, int startPos, int endPos, String name)
-    // {
-    //     super(file, startPos, endPos, name, ScopeType.OPAQUE);
-    // }
-    //
-    // public MethodDefinition(SourceFile file, int startPos, int endPos, String name, ScopeType scopeType)
-    // {
-    //     super(file, startPos, endPos, name, scopeType);
-    // }
-
     public MethodDefinition(SourceFile file, int startPos, int endPos, String name)
     {
         super(file, startPos, endPos, name);
@@ -71,10 +61,4 @@ public class MethodDefinition extends ScopedDefinition
                         .collect(Collectors.joining(",")) + ")"
             + "`";
     }
-
-    // @Override
-    // public Optional<String> getPublicScope()
-    // {
-    //     return Optional.empty();
-    // }
 }

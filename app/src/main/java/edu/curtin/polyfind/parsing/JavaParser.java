@@ -41,10 +41,16 @@ import java.util.stream.*;
  */
 public class JavaParser extends Parser
 {
+    // private static final Pattern MAIN_CENSOR_PATTERN = Pattern.compile(
+    //     "//[^\n]*"                        // single line comments
+    //     + "|/\\*([^*]|\\*[^/])*+\\*?\\*/" // multi-line comments
+    //     + "|\"([^\"\\\\]|\\\\.)*\""       // strings
+    // );
+
     private static final Pattern MAIN_CENSOR_PATTERN = Pattern.compile(
-        "//[^\n]*"                       // single line comments
-        + "|/\\*([^*]|\\*[^/])*\\*?\\*/" // multi-line comments
-        + "|\"([^\"\\\\]|\\\\.)*\""      // strings
+        "//[^\n]*+"                       // single line comments
+        + "|/\\*([^*]|\\*[^/])*+\\*?\\*/" // multi-line comments
+        + "|\"([^\"\\\\]|\\\\.)*+\""      // strings
     );
 
     // // private static final Pattern INITIALISER_CENSOR_PATTERN = Pattern.compile(
@@ -59,7 +65,7 @@ public class JavaParser extends Parser
     //     + bracketExprRegex("\\[", "\\]") + ")*?(?=;)"
     // );
 
-    private static final Pattern SCOPE_CENSOR_PATTERN = Pattern.compile("\\{[^{}]*\\}");
+    private static final Pattern SCOPE_CENSOR_PATTERN = Pattern.compile("\\{[^{}]*+\\}");
 
     private static final String NAME = "\\b[A-Za-z_][A-Za-z0-9_]*\\b";
     private static final String Q_NAME = NAME + "(\\s*\\.\\s*" + NAME + ")*";
@@ -116,7 +122,7 @@ public class JavaParser extends Parser
         ANNOTATION + "|" + STD_MODIFIER);
 
     private static final String MODIFIERS =
-        "(?<modifiers>(" + ANNOTATION + "|" + STD_MODIFIER + "\\s*)*)";
+        "(?<modifiers>(" + ANNOTATION + "|" + STD_MODIFIER + "\\s*+)*+)";
 
     private static final Pattern PARAMETER_PATTERN = Pattern.compile(
         MODIFIERS
@@ -129,29 +135,37 @@ public class JavaParser extends Parser
         MODIFIERS
         + "("
             + "(?<type>"
-                + "\\b(?<construct>class|interface|record|enum)\\s+"
-                + "(?<typeName>" + notReservedRegex(RESERVED) + NAME + ")\\s*"
-                + "(?<typeTypeParams>" + TYPE_ARGS + ")?\\s*"
-                + "(?<recordHeader>" + bracketExprRegex("\\(", "\\)") + "\\s*)?"
-                + "(\\bextends\\s+(?<extends>" + TYPE_LIST + ")\\s*)?"
-                + "(\\bimplements\\s+(?<implements>" + TYPE_LIST + ")\\s*)?"
-                + "(\\bpermits\\s+(?<permits>" + TYPE_LIST + ")\\s*)?"
-                + "(\\{[^{}]*\\})"
+                + "\\b(?<construct>class|interface|record|enum)\\s++"
+                + "(?<typeName>" + notReservedRegex(RESERVED) + NAME + ")\\s*+"
+                + "(?<typeTypeParams>" + TYPE_ARGS + ")?\\s*+"
+                + "(?<recordHeader>" + bracketExprRegex("\\(", "\\)") + "\\s*+)?+"
+                + "(\\bextends\\s++(?<extends>" + TYPE_LIST + ")\\s*+)?+"
+                + "(\\bimplements\\s++(?<implements>" + TYPE_LIST + ")\\s*+)?+"
+                + "(\\bpermits\\s++(?<permits>" + TYPE_LIST + ")\\s*+)?+"
+                + "(\\{[^{}]*+\\})"
             + ")|"
             + "(?<anon>"
-                + "\\bnew\\s+"
+                + "\\bnew\\s++"
                 + "(?<superType>" + ANNOTATABLE_TYPE_USE + ")"
-                + "(?<anonTypeArgs>" + TYPE_ARGS + ")?\\s*"
-                + "\\((?<anonArgs>([^()]|" + bracketExprRegex("\\(", "\\)") + ")*)\\)\\s*"
-                + "(\\{[^{}]*\\})"
+                + "(?<anonTypeArgs>" + TYPE_ARGS + ")?\\s*+"
+                + "\\((?<anonArgs>([^()]|" + bracketExprRegex("\\(", "\\)") + ")*)\\)\\s*+"
+                + "(\\{[^{}]*+\\})"
             + ")|"
             + "(?<method>"
-                + "(?<methodTypeParams>" + TYPE_ARGS + ")?\\s*"
-                + "(?<returnType>" + notReservedRegex(RESERVED_NON_TYPES) + TYPE_USE + ")\\s+"
-                + "(?<methodName>" + notReservedRegex(RESERVED) + NAME + ")\\s*"
-                + "\\((?<params>([^()]|" + bracketExprRegex("\\(", "\\)") + ")*)\\)\\s*"
-                + "(throws\\s+(?<throws>" + TYPE_LIST + ")*\\s*)?"
-                + "(;|\\{[^{}]*\\})"
+                // + "(?>"
+                //     // In this first part, we haven't yet
+                //     + "(?<methodTypeParams>" + TYPE_ARGS + ")?\\s*"
+                //     + "(?<returnType>" + notReservedRegex(RESERVED_NON_TYPES) + TYPE_USE + ")\\s+"
+                //     + "(?<methodName>" + notReservedRegex(RESERVED) + NAME + ")\\s*"
+                //     + "\\("
+                // + ")"
+                + "(?<methodTypeParams>" + TYPE_ARGS + ")?\\s*+"
+                + "(?<returnType>" + notReservedRegex(RESERVED_NON_TYPES) + TYPE_USE + ")\\s++"
+                + "(?<methodName>" + notReservedRegex(RESERVED) + NAME + ")\\s*+"
+                + "\\("
+                + "(?<params>([^()]|" + bracketExprRegex("\\(", "\\)") + ")*+)\\)\\s*+"
+                + "(throws\\s++(?<throws>" + TYPE_LIST + ")*+\\s*+)?+"
+                + "(;|\\{[^{}]*+\\})"
             + ")"
         + ")"
     );
@@ -283,6 +297,14 @@ public class JavaParser extends Parser
                     .map(defn -> new Import(defn, names.get(names.size() - 1))));
             }
         }
+
+        // Add implicit imports for the top-level package(s), to enable fully-qualified type names.
+        // (To be clear: this does not correspond to anything explicitly in the source code, but
+        // rather to general Java semantics.)
+        imports.add(() -> project.getNested()
+            .filter(defn -> defn instanceof PackageDefinition)
+            .map(defn -> new Import(defn, defn.getName())));
+
         return imports;
     }
 

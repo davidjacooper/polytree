@@ -49,16 +49,6 @@ public class PolyFind implements Callable<Integer>
                 {
                     languageSet.getByPath(path).ifPresent(language ->
                     {
-                        // try
-                        // {
-                        //     var sourceFile = SourceFile.read(path);
-                        //     language.getParser().parse(sourceFile);
-                        //     sourceFile.walk(TypeDefinition.class).forEach(treeBuilder::addDefinition);
-                        // }
-                        // catch(IOException e)
-                        // {
-                        //     throw new UncheckedIOException(e);
-                        // }
                         try
                         {
                             var project = projects.computeIfAbsent(

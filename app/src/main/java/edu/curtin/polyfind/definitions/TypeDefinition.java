@@ -10,18 +10,6 @@ public class TypeDefinition extends ScopedDefinition
     private Optional<QualifiedTypeName> metaType = Optional.empty();
     private final Set<QualifiedTypeName> superTypes = new HashSet<>();
 
-    // public TypeDefinition(SourceFile file, int startPos, int endPos, String name, String construct)
-    // {
-    //     this(file, startPos, endPos, name, ScopeType.NAMESPACE, construct);
-    // }
-    //
-    // public TypeDefinition(SourceFile file, int startPos, int endPos,
-    //                       String name, ScopeType scopeType, String construct)
-    // {
-    //     super(file, startPos, endPos, name, scopeType);
-    //     this.construct = construct;
-    // }
-
     public TypeDefinition(SourceFile file, int startPos, int endPos,
                           String name, TypeCategory category, String construct)
     {
@@ -44,12 +32,10 @@ public class TypeDefinition extends ScopedDefinition
         return qName;
     }
 
-    // public boolean isClass()                      { return construct.equals("class"); }
     public TypeCategory getCategory()             { return category; }
 
     public String getConstruct()                  { return construct; }
     public Stream<QualifiedTypeName> getSuperTypes()  { return superTypes.stream(); }
-    // public List<QualifiedName> getSuperTypeList() { return superTypes; }
     public Optional<QualifiedTypeName> getMetaType()  { return metaType; }
 
     public Stream<MethodDefinition> getMethods()
@@ -58,33 +44,6 @@ public class TypeDefinition extends ScopedDefinition
             .filter(d -> d instanceof MethodDefinition)
             .map(d -> (MethodDefinition)d);
     }
-
-    // private String asRawClass(String cls)
-    // {
-    //     int typeArgIndex = cls.indexOf('<');
-    //     if(typeArgIndex == -1)
-    //     {
-    //         return cls;
-    //     }
-    //     else
-    //     {
-    //         return cls.substring(0, typeArgIndex).trim();
-    //     }
-    // }
-    //
-    // public Stream<String> getRawSuperTypes()
-    // {
-    //     return superTypes.stream().map(this::asRawClass);
-    // }
-
-    // @Override
-    // public Optional<String> getPublicScope()
-    // {
-    //     var containing = getContaining();
-    //     if(containing.isEmpty()) { return Optional.of(getName()); }
-    //
-    //     return containing.flatMap(c -> c.getPublicScope()).map(s -> s + "." + getName());
-    // }
 
     @Override
     public String toString()

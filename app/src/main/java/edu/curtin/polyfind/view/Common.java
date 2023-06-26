@@ -11,11 +11,4 @@ public class Common
         TypeCategory.INTERFACE, RED,
         TypeCategory.OTHER, BLUE
     );
-
-    // public static String construct(TypeNode t)
-    // {
-    //     return t.getDefinition()
-    //         .map(d -> d.getConstruct())
-    //         .orElseGet(() -> t.isClass() ? "class" : "interface");
-    // }
 }

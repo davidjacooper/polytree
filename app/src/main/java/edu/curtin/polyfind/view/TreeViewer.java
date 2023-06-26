@@ -3,64 +3,11 @@ import edu.curtin.polyfind.definitions.Modifier;
 import edu.curtin.polyfind.tree.*;
 import static edu.curtin.polyfind.view.Output.*;
 
-// import org.fusesource.jansi.*;
-// import static org.fusesource.jansi.Ansi.Color.*;
-
 import static java.lang.Math.max;
 import java.util.*;
 
 public class TreeViewer
 {
-//     private static final String DEFAULT = "";
-//     private static final String BRIGHT_WHITE = "1";
-//     private static final String GREY = "30;1";
-//     private static final String RED = "31";
-//     private static final String GREEN = "32";
-//     private static final String ORANGE = "33";
-//     private static final String MAGENTA = "35";
-//     private static final String CYAN = "36";
-//     private static final String BRIGHT_MAGENTA = "35;1";
-//
-//     private static final char[] UNICODE_CHARSET = {'│', '├', '└', '─', '┊'};
-//     private static final char[] ASCII_CHARSET   = {'|', '+', '\\', '-', '|'};
-//     private static final int VERTICAL_CH = 0;
-//     private static final int INTERSECT_CH = 1;
-//     private static final int CORNER_CH = 2;
-//     private static final int HORIZONTAL_CH = 3;
-//     private static final int VERTICAL_DOTTED_CH = 4;
-//
-//     static {
-//         AnsiConsole.systemInstall();
-//     }
-//
-//     private char[] charSet = UNICODE_CHARSET;
-//     private int column = 0;
-//     private int terminalWidth;
-//     private PrintStream out;
-//
-//     public static TreeViewer withAnsi()
-//     {
-//         var out = AnsiConsole.out();
-//         out.setMode(AnsiMode.Force);
-//         return new TreeViewer(out);
-//     }
-
-//     public TreeViewer(PrintStream out)
-//     {
-//         terminalWidth = AnsiConsole.getTerminalWidth();
-//         if(terminalWidth < 1)
-//         {
-//             terminalWidth = 80;
-//         }
-//         this.out = out;
-//     }
-//
-//     public TreeViewer ascii(boolean ascii)
-//     {
-//         charSet = ascii ? ASCII_CHARSET : UNICODE_CHARSET;
-//         return this;
-//     }
-
     private Output out;
 
     public TreeViewer(Output out)
@@ -133,22 +80,19 @@ public class TreeViewer
                 out.print(" ");
             })
         );
-        // out.print(Common.construct(type), type.isClass() ? GREEN : RED);
         out.print(type.getConstruct(), Common.TYPE_COLOURS.get(type.getCategory()));
         out.print(" ");
         out.print(type.getName(), BRIGHT_WHITE);
 
         typeDefn.ifPresent(d -> d.getTypeParams().ifPresent(tp -> out.print(tp, GREY)));
 
-        // type.getSourceFile().ifPresentOrElse(
-        //     f -> f.getPackage().ifPresentOrElse(
-        //         name -> out.printRight("[package " + name + "]", GREY),
-        //         () -> out.newLine()),
-        //     () -> out.println(" [no source]", GREY)
-        // );
         if(type instanceof ExternalTypeNode)
         {
             out.println(" [external]", GREY);
+        }
+        else
+        {
+            out.newLine();
         }
 
         var children = type.getChildren();
@@ -205,9 +149,6 @@ public class TreeViewer
             for(var method : allMethods)
             {
                 var defn = method.getDefinition();
-                // var modifiers = new TreeSet<String>();
-                // defn.getModifiers().forEach(m -> modifiers.add(m.toString()));
-
                 var modifiers = new TreeSet<Modifier>();
                 defn.getModifiers().forEach(modifiers::add);
 
@@ -228,11 +169,6 @@ public class TreeViewer
                     {
                         modifiers.remove(Modifier.PUBLIC);
                     }
-
-                    // if(!type.isClass() && !modifiers.contains("default"))
-                    // {
-                    //     modifiers.add("abstract");
-                    // }
 
                     var params = method.getParameters();
 
@@ -323,10 +259,6 @@ public class TreeViewer
         }
     }
 
-    // private String modStr(String mod)
-    // {
-    //     return mod.toString().replaceAll("(?s)\\(.*\\)", "()").replaceAll("\\s+", "");
-    // }
     private String modStr(Modifier mod)
     {
         return mod.toString().replaceAll("(?s)\\(.*\\)", "()").replaceAll("\\s+", "");

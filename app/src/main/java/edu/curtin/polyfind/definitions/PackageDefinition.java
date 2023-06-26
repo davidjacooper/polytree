@@ -11,23 +11,16 @@ public class PackageDefinition extends ScopedDefinition
                              String name, String construct)
     {
         super(file, startPos, endPos, name);
-        // setAscendable(false);
-        // setDescendable(true);
         this.construct = construct;
     }
 
     public PackageDefinition(String name, String construct)
     {
         super(name);
-        // setAscendable(false);
-        // setDescendable(true);
         this.construct = construct;
     }
 
     public String getConstruct() { return construct; }
-
-    // @Override
-    // public Optional<String> getPublicScope() { ... }
 
     @Override
     public String toString()

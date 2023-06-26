@@ -13,12 +13,6 @@ public class SearchRecommender
     private final Language language;
     private boolean useAck = true;
 
-    // private static final Map<TypeCategory,String> TYPE_COLOURS = Map.of(
-    //     TypeCategory.CLASS, GREEN,
-    //     TypeCategory.INTERFACE, RED,
-    //     TypeCategory.OTHER, BLUE
-    // );
-
     public SearchRecommender(Output out, Language language)
     {
         this.out = out;
