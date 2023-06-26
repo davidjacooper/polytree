@@ -38,21 +38,21 @@ public class PythonParser extends Parser
 {
     private static final Pattern MAIN_CENSOR_PATTERN;
     static {
-        var string = "('''|'|\"\"\"|\")(\\\\.|(?!\\1).)*\1";
-        var comment = "#[^\n]*";
+        var string = "('''|'|\"\"\"|\")(\\\\.|(?!\\1).)*+\1";
+        var comment = "#[^\n]*+";
         MAIN_CENSOR_PATTERN = Pattern.compile(comment + '|' + string);
     }
 
     private static final Pattern NEWLINE_ESCAPE_CENSOR_PATTERN = Pattern.compile(
         "\\\\\\n");
 
-    private static final String NAME = "\\b[A-Za-z_][A-Za-z0-9_]*\\b";
-    private static final String Q_NAME = NAME + "([ \\t]*\\.[ \\t]*" + NAME + ")*";
+    private static final String NAME = "\\b[A-Za-z_][A-Za-z0-9_]*+\\b";
+    private static final String Q_NAME = NAME + "([ \\t]*+\\.[ \\t]*+" + NAME + ")*+";
 
     private static final Pattern IMPORT_PATTERN = Pattern.compile(
-        "^[ \\t]*"
-        + "(from[ \\t]+(?<relative>\\.*)(?<from>" + Q_NAME + ")?)?"
-        + "import[ \\t]+((?<star>\\*)|\\(?(?<list>[^\\n]+)\\)?)"
+        "^[ \\t]*+"
+        + "(from[ \\t]++(?<relative>\\.*+)(?<from>" + Q_NAME + ")?+)?+"
+        + "import[ \\t]++((?<star>\\*+)|\\(?(?<list>[^\\n]++)\\)?+)"
     );
 
     private static final Pattern IMPORT_ELEMENT_PATTERN = Pattern.compile(
@@ -61,14 +61,14 @@ public class PythonParser extends Parser
     );
 
     private static final Pattern DECLARATION_PATTERN = Pattern.compile(
-        "(?<decorators>(^[ \\t]*@[^\\n]*\\n)*)"
-        + "^(?<indent>[ \\t]*)(?<kind>def|class)[ \\t]+"
-        + "(?<name>" + NAME + ")[ \\t]*"
-        + "(\\((?<params>([^()]|" + bracketExprRegex("\\(", "\\)") + ")*)\\)[ \\t]*)?"
+        "(?<decorators>(^[ \\t]*+@[^\\n]*+\\n)*+)"
+        + "^(?<indent>[ \\t]*+)(?<kind>def|class)[ \\t]++"
+        + "(?<name>" + NAME + ")[ \\t]*+"
+        + "(\\((?<params>([^()]|" + bracketExprRegex("\\(", "\\)") + ")*+)\\)[ \\t]*+)?+"
         + "(->[ \\t](?<returnType>[^:]+?)[ \\t]*)?"
         + ":[ \\t]*"
-        + "(?<body>\\S[^\\n]*|"
-        +   "(\\s*\\n\\k<indent>[ \t][^\\n]*)*"
+        + "(?<body>\\S[^\\n]*+|"
+        +   "(\\s*\\n\\k<indent>[ \t][^\\n]*+)*+"
         + ")",
         Pattern.MULTILINE
     );
@@ -79,18 +79,18 @@ public class PythonParser extends Parser
     // may introduce symbols that interfere with parameter parsing. (Note: we don't bother removing
     // the body of a lambda, because (a) we don't need to, and (b) it's far more difficult to parse.
     private static final Pattern PARAM_CENSOR_PATTERN = Pattern.compile(
-        "(?x) \\{[^\\{]*\\}  |  \\([^\\(]*\\)  |  \\[[^\\[]*\\]  |  \\blambda\\b((?!\\blambda\\b)[^:])*:"
+        "(?x) \\{[^\\{]*+\\}  |  \\([^\\(]*+\\)  |  \\[[^\\[]*+\\]  |  \\blambda\\b((?!\\blambda\\b)[^:])*+:"
     );
 
     private static final Pattern PARAMETER_PATTERN = Pattern.compile(
         "(?<name>" + NAME + ")"
         // + "([ \\t]*:[ \\t]*(?<type>" + Q_NAME + "(" + bracketExprRegex("\\[", "\\]") + ")?))?"
-        + "([ \\t]*:[ \\t]*(?<type>[^=,]+))?"
-        + "([ \\t]*=[ \\t]*(?<defaultValue>[^,]+))?"
+        + "([ \\t]*+:[ \\t]*+(?<type>[^=,]++))?+"
+        + "([ \\t]*+=[ \\t]*+(?<defaultValue>[^,]++))?+"
     );
 
     private static final Pattern SUPERTYPE_PATTERN = Pattern.compile(
-        "(?<meta>\\bmetaclass[ \\t]*=[ \\t]*)?(?<main>[^,]+)"
+        "(?<meta>\\bmetaclass[ \\t]*+=[ \\t]*+)?+(?<main>[^,]++)"
     );
 
     private static final Set<List<String>> ABSTRACT_SUPERTYPES =

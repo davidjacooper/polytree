@@ -67,35 +67,35 @@ public class JavaParser extends Parser
 
     private static final Pattern SCOPE_CENSOR_PATTERN = Pattern.compile("\\{[^{}]*+\\}");
 
-    private static final String NAME = "\\b[A-Za-z_][A-Za-z0-9_]*\\b";
-    private static final String Q_NAME = NAME + "(\\s*\\.\\s*" + NAME + ")*";
+    private static final String NAME = "\\b[A-Za-z_][A-Za-z0-9_]*+\\b";
+    private static final String Q_NAME = NAME + "(\\s*+\\.\\s*+" + NAME + ")*+";
 
     private static final Pattern PACKAGE_PATTERN = Pattern.compile(
-        "(^|\\b)package\\s+(?<name>" + Q_NAME + ")\\s*;");
+        "(^|\\b)package\\s++(?<name>" + Q_NAME + ")\\s*+;");
 
     private static final Pattern IMPORT_PATTERN = Pattern.compile(
-        "(^|\\b)import\\s+(?<static>static\\s+)?"
+        "(^|\\b)import\\s++(?<static>static\\s++)?"
         + "(?<name>" + Q_NAME + ")"
-        + "(?<star>\\s*\\.\\s*\\*)?\\s*;"
+        + "(?<star>\\s*+\\.\\s*+\\*)?+\\s*+;"
     );
 
     private static final String TYPE_ARGS = bracketExprRegex("<", ">");
     private static final String ANNOTATION =
-        "@\\s*" + Q_NAME + "(\\s*" + bracketExprRegex("\\(", "\\)") + ")?\\s*";
+        "@\\s*+" + Q_NAME + "(\\s*+" + bracketExprRegex("\\(", "\\)") + ")?+\\s*+";
     private static final String STD_MODIFIER =
         "(\\b(abstract|default|final|native|non-sealed|open|private|protected|public|static|"
         + "sealed|strictfp|synchronized|transient|volatile)\\b)";
 
     private static final String TYPE_USE =
         Q_NAME
-        + "(\\s*" + TYPE_ARGS + ")?"
-        + "(\\s*(" + ANNOTATION + ")*\\[\\s*\\])*";
+        + "(\\s*+" + TYPE_ARGS + ")?+"
+        + "(\\s*+(" + ANNOTATION + ")*+\\[\\s*+\\])*+";
 
     private static final String ANNOTATABLE_TYPE_USE =
-        "(" + ANNOTATION + ")*" + TYPE_USE;
+        "(" + ANNOTATION + ")*+" + TYPE_USE;
 
     private static final String TYPE_LIST =
-        ANNOTATABLE_TYPE_USE + "(\\s*,\\s*" + ANNOTATABLE_TYPE_USE + ")*";
+        ANNOTATABLE_TYPE_USE + "(\\s*+,\\s*+" + ANNOTATABLE_TYPE_USE + ")*+";
 
     private static final List<String> RESERVED = List.of("abstract", "assert", "boolean", "break",
         "byte", "case", "catch", "char", "class", "const", "continue", "default", "do", "double",
@@ -126,8 +126,8 @@ public class JavaParser extends Parser
 
     private static final Pattern PARAMETER_PATTERN = Pattern.compile(
         MODIFIERS
-        + "(?<type>" + notReservedRegex(RESERVED_NON_TYPES) + TYPE_USE + ")\\s*"
-        + "(?<vararg>(" + ANNOTATION + ")*\\.\\.\\.\\s*)?"
+        + "(?<type>" + notReservedRegex(RESERVED_NON_TYPES) + TYPE_USE + ")\\s*+"
+        + "(?<vararg>(" + ANNOTATION + ")*+\\.\\.\\.\\s*+)?+"
         + "(?<name>" + notReservedRegex(RESERVED) + NAME + ")"
     );
 
@@ -142,7 +142,7 @@ public class JavaParser extends Parser
                 + "(\\bextends\\s++(?<extends>" + TYPE_LIST + ")\\s*+)?+"
                 + "(\\bimplements\\s++(?<implements>" + TYPE_LIST + ")\\s*+)?+"
                 + "(\\bpermits\\s++(?<permits>" + TYPE_LIST + ")\\s*+)?+"
-                + "(\\{[^{}]*+\\})"
+                + "(\\{(?<body>[^{}]*+)\\})"
             + ")|"
             + "(?<anon>"
                 + "\\bnew\\s++"
@@ -314,9 +314,11 @@ public class JavaParser extends Parser
         var construct = matcher.uncensoredGroup("construct").get();
         var category = construct.equals("interface") ? TypeCategory.INTERFACE : TypeCategory.CLASS;
 
+        int start = matcher.start();
+
         var defn = new TypeDefinition(
             file,
-            matcher.start(),
+            start,
             matcher.end(),
             matcher.uncensoredGroup("typeName").get(),
             category,
@@ -328,6 +330,24 @@ public class JavaParser extends Parser
 
         addSuperTypes(defn, matcher, "implements", TypeCategory.INTERFACE);
         addSuperTypes(defn, matcher, "extends", category);
+
+
+        // We generally expect nested definitions to have already been parsed. We forbid any
+        // uncensored braces {...} (e.g., as would be part of a nested definition) within the body
+        // of the definition.
+
+        // However, we have to violate this ordering for the special case where a class/interface
+        // definition contains only abstract/native methods (and hence no braces).
+
+        var bodyMatcher = matcher.censoredGroup("body").get().matcher(DECLARATION_PATTERN);
+        while(bodyMatcher.find())
+        {
+            var methodDefn = makeMethodDefinition(file, bodyMatcher);
+            methodDefn.setLocation(file, methodDefn.getStartPos() + start,
+                                         methodDefn.getEndPos() + start);
+            defn.addNested(methodDefn);
+        }
+
         return defn;
     }
 

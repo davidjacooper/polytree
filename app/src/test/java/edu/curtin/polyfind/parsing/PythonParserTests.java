@@ -22,6 +22,37 @@ class PythonParserTests
     private Project project = new Project("test_python_project",
                                           new LanguageSet().getByExtension("py").get());
 
+
+    static Stream<List<String>> longThings()
+    {
+        return Stream.of(
+            List.of("comments (#...)",     "class A: pass #" + ".".repeat(5000)),
+            List.of("strings (\"...\")",   "class A: pass \"" + ".".repeat(5000) + "\""),
+            List.of("parentheses ((...))", "class A(" + "z,".repeat(5000) + "): pass"),
+            List.of("parentheses ((...))", "def A(z = z(" + "1".repeat(5000) + ")): pass"),
+            List.of("brackets ([...])",    "def A(z = [" + "1".repeat(5000) + "]): pass"),
+            List.of("braces ({...})",      "def A(z = {" + "1".repeat(5000) + "}): pass"),
+            List.of("scope (\\n...)",      "class A:\n" + "  .\n".repeat(5000) + ".")
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource("longThings")
+    void longThingsTest(List<String> arg)
+    {
+        var label = arg.get(0);
+        var code = arg.get(1);
+        var sourceFile = new SourceFile(project, FILE, code);
+
+        assertThatNoException()
+            .describedAs("parsing long " + label)
+            .isThrownBy(() -> new PythonParser().parse(project, sourceFile));
+
+        assertThat(project.walk())
+            .filteredOn("name", "A")
+            .singleElement();
+    }
+
     @ParameterizedTest
     @ValueSource(strings = { "", "@dec1", "@dec2(abc)", "@dec1\n@dec2(abc)", "@dec1(abc)\n@dec2" })
     void decorators(String modifiers)
