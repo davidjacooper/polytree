@@ -41,12 +41,6 @@ import java.util.stream.*;
  */
 public class JavaParser extends Parser
 {
-    // private static final Pattern MAIN_CENSOR_PATTERN = Pattern.compile(
-    //     "//[^\n]*"                        // single line comments
-    //     + "|/\\*([^*]|\\*[^/])*+\\*?\\*/" // multi-line comments
-    //     + "|\"([^\"\\\\]|\\\\.)*\""       // strings
-    // );
-
     private static final Pattern MAIN_CENSOR_PATTERN = Pattern.compile(
         "//[^\n]*+"                       // single line comments
         + "|/\\*([^*]|\\*[^/])*+\\*?\\*/" // multi-line comments

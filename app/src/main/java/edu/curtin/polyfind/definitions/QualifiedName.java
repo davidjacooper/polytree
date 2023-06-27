@@ -19,6 +19,8 @@ public class QualifiedName
         this.withinScope = withinScope;
     }
 
+    public List<String> getNames() { return names; }
+
     @Override
     public boolean equals(Object otherObj)
     {

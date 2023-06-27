@@ -6,6 +6,7 @@ import java.util.*;
 public class TreeBuilder
 {
     private Map<TypeDefinition,TypeNode> typeMap = new HashMap<>();
+    private Map<String,TypeNode> externalTypeMap = new HashMap<>();
 
     public TreeBuilder() {}
 
@@ -68,7 +69,10 @@ public class TreeBuilder
             }
         }
 
-        return typeMap.values();
+        var allTypeNodes = new ArrayList<>(typeMap.values());
+        allTypeNodes.addAll(externalTypeMap.values());
+
+        return allTypeNodes;
     }
 
     private TypeNode getTypeNode(QualifiedTypeName name)
@@ -78,9 +82,13 @@ public class TreeBuilder
             .findFirst()
             .map(superDefn -> typeMap.computeIfAbsent(superDefn, ProjectTypeNode::new))
             .orElseGet(() ->
-                new ExternalTypeNode(name.toString(),
-                                     name.getCategoryHint(),
-                                     name.getConstructHint()));
+                externalTypeMap.computeIfAbsent(
+                    name.toString(),
+                    nameStr -> new ExternalTypeNode(nameStr,
+                                                    name.getCategoryHint(),
+                                                    name.getConstructHint())
+                )
+            );
     }
 
     private static void findMethodOverrides(TypeNode type, Map<Signature,MethodNode> superMethods)
