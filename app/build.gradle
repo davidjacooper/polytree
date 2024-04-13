@@ -16,8 +16,8 @@ dependencies {
 }
 
 application {
-    mainClass = 'edu.curtin.polyfind.PolyFind'
-    applicationName = 'polyfind'
+    mainClass = 'au.djac.polytree.PolyTree'
+    applicationName = 'polytree'
 }
 
 java {
