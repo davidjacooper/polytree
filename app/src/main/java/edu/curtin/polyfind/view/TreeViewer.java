@@ -126,7 +126,7 @@ public class TreeViewer
         if(allMethods.isEmpty())
         {
             out.print(prefix);
-            if(type.getSourceFile() == null)
+            if(type.getSourceFile().isEmpty())
             {
                 out.println("[methods unknown]", GREY);
             }
