@@ -16,7 +16,7 @@ import java.util.concurrent.Callable;
                      mixinStandardHelpOptions = true,
                      version = "0.2",
                      description = "Displays the inheritance structure of a student's Java/Python application, and recommends ack/grep commands for finding polymorphic method call sites.",
-                     footer = "Copyright (c) 2023 by David J A Cooper.")
+                     footer = "Copyright (c) 2023-2024 by David J A Cooper.")
 public class PolyTree implements Callable<Integer>
 {
     public static void main(String[] args)
